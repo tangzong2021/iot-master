@@ -1,0 +1,18 @@
+apiVersion: docker-to-sealos/v1
+kind: TopologyEvidence
+metadata:
+  name: iot-master-topology
+spec:
+  appName: iot-master
+  source: 'local-source-analysis:github.com/god-jason/iot-master@adb1e5a'
+  resources:
+    - kind: StatefulSet
+      name: ${{ defaults.app_name }}
+      when: always
+      replicas: 1
+    - kind: Cluster
+      name: ${{ defaults.app_name }}-mysql
+      when: always
+      components:
+        - name: mysql
+          replicas: 1
