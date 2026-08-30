@@ -63,7 +63,13 @@ export class EditComponent extends TemplateBase {
       this.submitting = true
       let url = LinkReplaceParams(content.submit_api, this.params);
       this.request.post(url, this.editor.value).subscribe(res => {
-        if (res.error) return
+        if (res.error) {
+          //提交失败：提示错误；页面配置了close_on_error时自动关闭弹窗（如动作下发超时场景）
+          this.notification.error("提示", res.error)
+          if (content.close_on_error && this.modalRef && !this.isChild)
+            this.modalRef.close()
+          return
+        }
         //this.data = res.data
         //this.ns.success("提示", "提交成功")
         //Object.assign(this.data, res.data)

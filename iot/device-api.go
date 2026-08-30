@@ -155,7 +155,7 @@ func deviceAction(ctx *gin.Context) {
 	}
 
 	//执行操作
-	result, err := d.Action(action, values, 30)
+	result, err := d.Action(action, values, 5) //动作等待设备回执超时5秒
 	if err != nil {
 		api.Error(ctx, err)
 		return

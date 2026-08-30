@@ -3,6 +3,7 @@ return {
   title: '执行动作',
   icon: '/emoji/device.svg',
   template: 'edit',
+  close_on_error: true, //下发超时等错误时提示并自动关闭弹窗
   fields: [],
   // 页面挂载时执行
   mount() {
