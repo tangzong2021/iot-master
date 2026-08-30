@@ -136,6 +136,7 @@ export interface ChartContent {
 
 export interface EditContent {
   template: 'edit'
+  close_on_error?: boolean
   fields: SmartField[]
 
   submit_api?: string
