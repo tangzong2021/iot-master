@@ -61,11 +61,19 @@ func (d *Device) Open() error {
 }
 
 func (d *Device) PutValues(values map[string]any) {
+	d.PutValuesTime(0, values)
+}
+
+// PutValuesTime 上报数据。ts为数据时间戳（毫秒），断网恢复补发时由设备携带采集时间；0表示使用服务器当前时间
+func (d *Device) PutValuesTime(ts int64, values map[string]any) {
+	if ts <= 0 {
+		ts = time.Now().UnixMilli()
+	}
 
 	//TODO 过滤器实现
 
 	//保存的内存中
-	d.values.Put(values)
+	d.values.PutTime(ts, values)
 
 	//检查属性
 	for _, v := range d.validators {
@@ -91,7 +99,7 @@ func (d *Device) PutValues(values map[string]any) {
 	}
 
 	//入历史数据库
-	err := history.Write(d.ProductId, d.Id, time.Now().UnixMilli(), values)
+	err := history.Write(d.ProductId, d.Id, ts, values)
 	if err != nil {
 		log.Error(err)
 	}

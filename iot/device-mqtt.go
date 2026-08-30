@@ -2,6 +2,7 @@ package iot
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
@@ -149,6 +150,23 @@ func mqttSubscribeDevice() {
 			return
 		}
 
+		//支持携带数据时间戳（断网恢复后补发场景）：顶层 _time 字段，秒或毫秒自动识别，缺省为服务器时间
+		var ts int64
+		if v, ok := values["_time"]; ok {
+			delete(values, "_time")
+			switch n := v.(type) {
+			case float64:
+				ts = int64(n)
+			case string:
+				ts, _ = strconv.ParseInt(n, 10, 64)
+			case json.Number:
+				ts, _ = n.Int64()
+			}
+			if ts > 0 && ts < 10000000000 { //10位数字是秒
+				ts *= 1000
+			}
+		}
+
 		//有数据就恢复上线
 		if !d.Online {
 			d.Online = true
@@ -159,7 +177,7 @@ func mqttSubscribeDevice() {
 		}
 
 		//会被Influxdb堵死。。。。
-		d.PutValues(values)
+		d.PutValuesTime(ts, values)
 	})
 
 	mqtt.Subscribe("device/+/property", func(topic string, payload []byte) {

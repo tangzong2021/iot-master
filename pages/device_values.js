@@ -42,6 +42,13 @@ return {
     load_values() {
       this.request.get('device/' + this.params.id + '/values').subscribe(res => {
         if (res.error) return
+        //数据时间格式化（断网补发时显示的是设备采集时间）
+        if (res.data && res.data._update) {
+          const t = new Date(res.data._update)
+          if (!isNaN(t.getTime())) {
+            res.data._update = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0')
+          }
+        }
         this.data = res.data
       })
     },
@@ -68,6 +75,17 @@ return {
       })
     },
     render_properties(properties) {
+      //数据时间卡片置顶（显示本批数据的采集时间）
+      this.content.children.unshift({
+        span: 24,
+        content: {
+          title: '数据时间',
+          template: 'statistic',
+          fields: [
+            {key: '_update', label: '采集时间'}
+          ]
+        }
+      })
       if (properties) {
         properties.map(p => {
           this.content.children.push({
