@@ -105,7 +105,9 @@
           <nz-select [formControlName]="field.key" [id]="field.id"
             [nzMode]="field.multiple ? 'multiple' : 'default'"
             [nzAllowClear]="!!field.multiple"
+            [nzShowSearch]="!!field.showSearch"
             [nzMaxTagCount]="3"
+            [nzDropdownStyle]="field.dropdownStyle || empty"
             [nzOptions]="field.options || empty"
           [nzPlaceHolder]="field.placeholder || ''"></nz-select>
         }

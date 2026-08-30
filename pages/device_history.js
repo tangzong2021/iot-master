@@ -46,7 +46,9 @@ return {
       type: 'select',
       label: '选择因子',
       multiple: true,
-      placeholder: '点选要查看的因子（可多选）',
+      showSearch: true,
+      dropdownStyle: {minWidth: '420px', maxWidth: '560px', maxHeight: '420px'},
+      placeholder: '点选要查看的因子（可多选，支持搜索）',
       options: []
     },
     {
