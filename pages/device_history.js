@@ -222,6 +222,14 @@ return {
       }
     },
     load_history() {
+      window.__chartDebug = 'started'
+      try {
+        this.load_history_inner()
+      } catch (e) {
+        window.__chartDebug = 'ERROR: ' + (e && e.message)
+      }
+    },
+    load_history_inner() {
       const points = this.points || [{name: this.params.point || 'value', label: this.params.point || '值'}]
       const query = {
         start: this.dayjs(this.toolbar.value.start).toISOString(),
@@ -251,24 +259,14 @@ return {
         times.sort((a, b) => a - b)
 
         const names = points.map(p => p.label ? p.label + '(' + p.name + ')' : p.name)
-        const dataset = [['时间', ...names]]
-        //时间列用毫秒数值，ECharts time轴原生支持，避免字符串解析歧义
-        times.map(t => {
-          dataset.push([
-            t,
-            ...points.map(p => {
-              const v = table[t][p.name]
-              return v === undefined ? null : v
-            })
-          ])
-        })
 
         //每个因子一条独立纵轴，scale自适应数据区间，左右交替分布
-        //注意：必须整体替换 chartOption 引用，ngx-echarts 才会感知配置变化
+        //数据直接内嵌在各series（[毫秒, 值]），time轴原生支持，绕开dataset编码歧义
         const n = points.length
         const nLeft = Math.ceil(n / 2)
         const axisNames = points.map(p => p.label || p.name)
         this.chartOption = Object.assign({}, this.chartOption, {
+          xAxis: {type: 'time'},
           legend: {data: names, top: 0},
           grid: {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40},
           yAxis: points.map((p, i) => {
@@ -282,12 +280,19 @@ return {
               splitLine: {show: i === 0}
             }
           }),
-          series: names.map((name, i) => {
-            return {name: name, type: 'line', yAxisIndex: i, connectNulls: true}
+          series: points.map((p, i) => {
+            return {
+              name: names[i],
+              type: 'line',
+              yAxisIndex: i,
+              connectNulls: true,
+              showSymbol: false,
+              data: list[i].map(r => [r.time, r.value])
+            }
           })
         })
-
-        this.render(dataset)
+        //不使用dataset，清空旧merge
+        this.mergeOption = {}
       })
     }
   }
