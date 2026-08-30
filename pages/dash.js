@@ -7,12 +7,12 @@ return {
         icon: '/emoji/chart.svg',
         template: 'statistic',
         fields: [
-          { label: '在线设备数量', key: 'online' },
-          { label: '离线设备数量', key: 'offline' },
-          { label: '异常设备数量', key: 'error' },
-          { label: '产品数量', key: 'product' },
-          { label: '用户数量', key: 'user' },
-          { label: '组织数量', key: 'group' }
+          { label: '在线设备数量', key: 'online', action: { type: 'link', link: '/page/device' } },
+          { label: '离线设备数量', key: 'offline', action: { type: 'link', link: '/page/device' } },
+          { label: '异常设备数量', key: 'error', action: { type: 'link', link: '/page/device' } },
+          { label: '产品数量', key: 'product', action: { type: 'link', link: '/page/product' } },
+          { label: '用户数量', key: 'user', action: { type: 'link', link: '/page/user' } },
+          { label: '组织数量', key: 'group', action: { type: 'link', link: '/page/group' } }
         ],
         // 页面挂载时执行
         mount() {
