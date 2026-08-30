@@ -1,4 +1,4 @@
-// 历史曲线页面配置
+// 历史曲线页面配置：多因子同图，每因子独立纵轴（按数据区间自适应），图例点选显隐
 return {
   title: '历史曲线',
   template: 'chart',
@@ -175,7 +175,7 @@ return {
           this.toolbarValue = {
             start: this.dayjs().subtract(10, 'minute').format('YYYY-MM-DD HH:mm:ss'),
             end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
-            window: 1,
+            window: 10,
             unit: 's'
           }
           setTimeout(() => this.load_history(), 100)
@@ -194,26 +194,97 @@ return {
     this.toolbarValue = {
       start: this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss')
     }
-    setTimeout(() => this.load_history(), 100)
+    this.ensure_points(() => this.load_history())
   },
   methods: {
-    load_history() {
-      this.request
-        .get('device/' + this.params.id + '/history/' + this.params.point, {
-          start: this.dayjs(this.toolbar.value.start).toISOString(),
-          end: this.dayjs(this.toolbar.value.end).toISOString(),
-          window: this.toolbar.value.window + this.toolbar.value.unit,
-          method: this.toolbar.value.method
+    //确定要绘制的因子列表：优先产品物模型全部点位，否则退回URL里的单个point
+    ensure_points(cb) {
+      const fallback = [{name: this.params.point || 'value', label: this.params.point || '值'}]
+      const load = (pid) => {
+        this.request.get('product/' + pid + '/setting/model').subscribe(res => {
+          const points = []
+          ;(res.data && res.data.content ? res.data.content : []).map(p => (p.points || []).map(pt => points.push(pt)))
+          this.points = points.length ? points : fallback
+          cb()
         })
-        .subscribe(res => {
-          if (res.data) {
-            this.render(
-              res.data.map(i => {
-                return [i.time, i.value]
-              })
-            )
+      }
+      if (this.params.product_id) {
+        load(this.params.product_id)
+      } else {
+        this.request.get('table/device/detail/' + this.params.id).subscribe(res => {
+          if (res.error || !res.data || !res.data.product_id) {
+            this.points = fallback
+            cb()
+            return
+          }
+          load(res.data.product_id)
+        })
+      }
+    },
+    load_history() {
+      const points = this.points || [{name: this.params.point || 'value', label: this.params.point || '值'}]
+      const query = {
+        start: this.dayjs(this.toolbar.value.start).toISOString(),
+        end: this.dayjs(this.toolbar.value.end).toISOString(),
+        window: this.toolbar.value.window + this.toolbar.value.unit,
+        method: this.toolbar.value.method
+      }
+      Promise.all(points.map(p => {
+        return new Promise(resolve => {
+          this.request.get('device/' + this.params.id + '/history/' + p.name, query)
+            .subscribe(res => resolve(res.data || []))
+        })
+      })).then(list => {
+        //按时间戳对齐合并：table[时间][点位名] = 值
+        const table = {}
+        const times = []
+        list.forEach((records, idx) => {
+          const name = points[idx].name
+          records.map(r => {
+            if (table[r.time] === undefined) {
+              table[r.time] = {}
+              times.push(r.time)
+            }
+            table[r.time][name] = r.value
+          })
+        })
+        times.sort((a, b) => a - b)
+
+        const names = points.map(p => p.label ? p.label + '(' + p.name + ')' : p.name)
+        const dataset = [['时间', ...names]]
+        times.map(t => {
+          dataset.push([
+            this.dayjs(t).format('YYYY-MM-DD HH:mm:ss'),
+            ...points.map(p => {
+              const v = table[t][p.name]
+              return v === undefined ? null : v
+            })
+          ])
+        })
+
+        //每个因子一条独立纵轴，scale自适应数据区间，左右交替分布
+        const n = points.length
+        const nLeft = Math.ceil(n / 2)
+        this.chartOption.yAxis = points.map((p, i) => {
+          return {
+            type: 'value',
+            scale: true,
+            name: p.label || p.name,
+            position: i < nLeft ? 'left' : 'right',
+            offset: i < nLeft ? 36 * i : 36 * (i - nLeft),
+            axisLine: {show: true},
+            splitLine: {show: i === 0}
           }
         })
+        this.chartOption.grid = {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40}
+        //图例点选可显示/隐藏任意因子
+        this.chartOption.legend = {data: names, top: 0}
+        this.chartOption.series = names.map((name, i) => {
+          return {name: name, type: 'line', yAxisIndex: i, connectNulls: true}
+        })
+
+        this.render(dataset)
+      })
     }
   }
 }
