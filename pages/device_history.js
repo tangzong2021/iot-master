@@ -252,9 +252,10 @@ return {
 
         const names = points.map(p => p.label ? p.label + '(' + p.name + ')' : p.name)
         const dataset = [['时间', ...names]]
+        //时间列用毫秒数值，ECharts time轴原生支持，避免字符串解析歧义
         times.map(t => {
           dataset.push([
-            this.dayjs(t).format('YYYY-MM-DD HH:mm:ss'),
+            t,
             ...points.map(p => {
               const v = table[t][p.name]
               return v === undefined ? null : v
