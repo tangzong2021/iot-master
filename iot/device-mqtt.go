@@ -150,7 +150,7 @@ func mqttSubscribeDevice() {
 			return
 		}
 
-		//支持携带数据时间戳（断网恢复后补发场景）：顶层 _time 字段，秒或毫秒自动识别，缺省为服务器时间
+		//支持携带数据时间戳（断网恢复后补发场景）：顶层 _time 字段，支持毫秒/秒数值或明文日期时间，缺省为服务器时间
 		var ts int64
 		if v, ok := values["_time"]; ok {
 			delete(values, "_time")
@@ -159,6 +159,14 @@ func mqttSubscribeDevice() {
 				ts = int64(n)
 			case string:
 				ts, _ = strconv.ParseInt(n, 10, 64)
+				if ts <= 0 && n != "" { //明文日期时间，如 2026-08-30 11:00:49
+					for _, layout := range []string{"2006-01-02 15:04:05", "2006/01/02 15:04:05", "2006-01-02T15:04:05", time.RFC3339} {
+						if t, e := time.ParseInLocation(layout, n, time.Local); e == nil {
+							ts = t.UnixMilli()
+							break
+						}
+					}
+				}
 			case json.Number:
 				ts, _ = n.Int64()
 			}

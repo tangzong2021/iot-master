@@ -32,6 +32,13 @@ return {
   auto_refresh: 10,
   load_api: 'device/:id/values',
   load_success(data) {
+    //数据时间格式化（断网补发时显示的是设备采集时间）
+    if (data && data._update) {
+      const t = new Date(data._update)
+      if (!isNaN(t.getTime())) {
+        data._update = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0')
+      }
+    }
     this.render_values()
   },
   // 页面挂载时执行
