@@ -23,9 +23,14 @@ func init() {
 		ids := GetUserSiteIds(uid)
 		if len(ids) == 0 {
 			//未绑定任何站点：返回不可能匹配的值，保证结果为空
-			return map[string]any{"id": []string{"__no_site__"}}
+			return map[string]any{"id": "__no_site__"}
 		}
-		return map[string]any{"id": ids}
+		//数组filter是AND语义，改用$or实现 id=a OR id=b
+		orCondition := map[string]any{}
+		for _, sid := range ids {
+			orCondition[sid] = sid
+		}
+		return map[string]any{"$or": map[string]any{"id": orCondition}}
 	}
 
 	//当前用户被授权的站点列表（供前端展示）

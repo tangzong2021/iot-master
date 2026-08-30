@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/api"
 	"github.com/god-jason/iot-master/pkg/db"
@@ -46,9 +47,17 @@ func init() {
 			return
 		}
 
-		//未登录或管理员：返回全部
-		uid := ctx.GetString("user")
-		if uid == "" || ctx.GetBool("admin") {
+		//读取会话（该路由未挂登录中间件，需自行取会话）
+		uid := ""
+		admin := false
+		session := sessions.Default(ctx)
+		if v := session.Get("user"); v != nil {
+			uid, _ = v.(string)
+		}
+		if a := session.Get("admin"); a != nil {
+			admin, _ = a.(bool)
+		}
+		if uid == "" || admin {
 			ctx.JSON(200, menus)
 			return
 		}
