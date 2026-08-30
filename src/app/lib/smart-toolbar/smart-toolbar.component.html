@@ -101,8 +101,11 @@
         }
         @case ('select') {
           {{ field.label || '' }}
-          <!--选项-->
+          <!--选项（field.multiple 开启多选）-->
           <nz-select [formControlName]="field.key" [id]="field.id"
+            [nzMode]="field.multiple ? 'multiple' : 'default'"
+            [nzAllowClear]="!!field.multiple"
+            [nzMaxTagCount]="3"
             [nzOptions]="field.options || empty"
           [nzPlaceHolder]="field.placeholder || ''"></nz-select>
         }

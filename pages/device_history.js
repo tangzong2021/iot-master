@@ -45,25 +45,9 @@ return {
       key: 'factor_sel',
       type: 'select',
       label: '选择因子',
-      placeholder: '点选因子加入曲线',
-      options: [],
-      change_action: {
-        type: 'script',
-        script(data, index) {
-          //选中因子只累积，点「查询」才绘制
-          const v = this.toolbar && this.toolbar.value ? this.toolbar.value.factor_sel : null
-          if (!v) return
-          if (!this.selPoints) this.selPoints = []
-          if (!this.selPoints.find(p => p.name === v)) {
-            const f = (this.points || []).find(p => p.name === v)
-            if (f) this.selPoints.push(f)
-          }
-          setTimeout(() => {
-            try { this.toolbar.group.get('factor_sel').reset() } catch (e) { }
-          }, 150)
-          this.show_selected()
-        }
-      }
+      multiple: true,
+      placeholder: '点选要查看的因子（可多选）',
+      options: []
     },
     {
       type: 'button',
@@ -81,7 +65,7 @@ return {
       action: {
         type: 'script',
         script(data, index) {
-          this.selPoints = []
+          try { this.toolbar.group.get('factor_sel').setValue([]) } catch (e) { }
           this.load_history()
         }
       }
@@ -93,7 +77,8 @@ return {
         type: 'script',
         script(data, index) {
           //导出当前已选因子，按时间对齐合并为一个多列CSV
-          const points = this.selPoints || []
+          const selNames = (this.toolbar.value && this.toolbar.value.factor_sel) || []
+          const points = (this.points || []).filter(p => selNames.includes(p.name))
           if (!points.length) {
             alert('请先选择因子')
             return
@@ -212,9 +197,8 @@ return {
     }
     this.ensure_points(() => {
       //URL带point参数时预选该因子（从实时值卡片点入的场景），否则默认不选
-      if (this.params.point && (!this.selPoints || !this.selPoints.length)) {
-        const f = (this.points || []).find(p => p.name === this.params.point)
-        if (f) this.selPoints = [f]
+      if (this.params.point) {
+        try { this.toolbar.group.get('factor_sel').setValue([this.params.point]) } catch (e) { }
       }
       this.load_history()
     })
@@ -255,19 +239,10 @@ return {
         })
       }
     },
-    //刷新空图上的已选因子提示（不绘制）
-    show_selected() {
-      const sel = (this.selPoints || []).map(p => p.label || p.name)
-      const text = sel.length ? '已选因子：' + sel.join('、') + ' —— 点击「查询」绘制曲线' : '请在工具栏「选择因子」下拉框中点选要查看的因子，然后点击「查询」'
-      this.chartOption = Object.assign({}, this.chartOption, {
-        title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
-        series: []
-      })
-      this.mergeOption = {}
-    },
-    //按已选因子绘制：每因子独立纵轴自适应
+    //按多选框选中的因子绘制：每因子独立纵轴自适应
     load_history() {
-      const points = this.selPoints || []
+      const selNames = (this.toolbar.value && this.toolbar.value.factor_sel) || []
+      const points = (this.points || []).filter(p => selNames.includes(p.name))
       const query = {
         start: this.dayjs(this.toolbar.value.start).toISOString(),
         end: this.dayjs(this.toolbar.value.end).toISOString(),
@@ -276,8 +251,7 @@ return {
       }
       if (!points.length) {
         //默认空图：显示已选因子或引导提示，点「查询」才绘制
-        const sel = (this.selPoints || []).map(p => p.label || p.name)
-        const text = sel.length ? '已选因子：' + sel.join('、') + ' —— 点击「查询」绘制曲线' : '请在工具栏「选择因子」下拉框中点选要查看的因子，然后点击「查询」'
+        const text = '请在「选择因子」下拉框中选择因子（可多选），然后点击「查询」'
         this.chartOption = Object.assign({}, this.chartOption, {
           title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
           xAxis: {type: 'time'},
