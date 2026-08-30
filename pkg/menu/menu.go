@@ -2,7 +2,6 @@ package menu
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/gin-contrib/sessions"
@@ -65,15 +64,9 @@ func init() {
 
 		//普通用户：按权限过滤菜单（用户表 priv_* 布尔字段）
 		privs := loadUserPrivileges(uid)
-		//临时调试
-		ctx.Header("X-Debug-Uid", uid)
-		ctx.Header("X-Debug-Privs", fmt.Sprintf("%v", privs))
-		ctx.Header("X-Debug-Err", debugErr)
 		ctx.JSON(200, filterMenus(menus, privs))
 	})
 }
-
-var debugErr string
 
 // loadUserPrivileges 读取用户权限集合
 func loadUserPrivileges(uid string) map[string]bool {
@@ -84,11 +77,7 @@ func loadUserPrivileges(uid string) map[string]bool {
 		PrivSystem       bool `json:"priv_system"`
 	}
 	var r row
-	if has, err := db.Engine().Table("user").ID(uid).Get(&r); err != nil {
-		debugErr = "query error: " + err.Error()
-	} else if !has {
-		debugErr = "user not found"
-	} else if has {
+	if has, err := db.Engine().Table("user").Where("id=?", uid).Get(&r); err == nil && has {
 		if r.PrivDataView {
 			privs["data_view"] = true
 		}
