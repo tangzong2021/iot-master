@@ -52,6 +52,42 @@ return {
       }
     },
     {
+      type: 'button',
+      label: '导出CSV',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.request
+            .get('device/' + this.params.id + '/history/' + this.params.point, {
+              start: this.dayjs(this.toolbar.value.start).toISOString(),
+              end: this.dayjs(this.toolbar.value.end).toISOString(),
+              window: this.toolbar.value.window + this.toolbar.value.unit,
+              method: this.toolbar.value.method
+            })
+            .subscribe(res => {
+              if (!res.data || !res.data.length) {
+                alert('当前时间范围内没有数据')
+                return
+              }
+              const rows = ['时间,' + this.params.point]
+              res.data.map(i => {
+                rows.push(this.dayjs(i.time).format('YYYY-MM-DD HH:mm:ss') + ',' + i.value)
+              })
+              //\ufeff BOM头，保证Excel打开中文不乱码
+              const blob = new Blob(['\ufeff' + rows.join('\n')], {type: 'text/csv;charset=utf-8'})
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = this.params.id + '-' + this.params.point + this.dayjs().format('-YYYYMMDDHHmmss') + '.csv'
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            })
+        }
+      }
+    },
+    {
       type: 'link',
       label: '过去1天',
       action: {
