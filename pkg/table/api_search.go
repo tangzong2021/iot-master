@@ -19,6 +19,18 @@ func ApiSearch(ctx *gin.Context) {
 		return
 	}
 
+	//行级数据过滤钩子（如站点授权：非管理员只查看被分配的站点）
+	if RowFilter != nil {
+		if extra := RowFilter(ctx, table.Name); extra != nil {
+			if body.Filter == nil {
+				body.Filter = make(map[string]any)
+			}
+			for k, v := range extra {
+				body.Filter[k] = v
+			}
+		}
+	}
+
 	if viper.GetBool("tenant") {
 		tid := ctx.GetString("tenant")
 		if tid != "" {

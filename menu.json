@@ -10,12 +10,18 @@
       {
         "name": "数据大屏",
         "url": "full/screen",
-        "external": true
+        "external": true,
+        "privileges": [
+          "data_view"
+        ]
       },
       {
         "name": "系统信息",
         "url": "page/system",
-        "admin": true
+        "admin": true,
+        "privileges": [
+          "system"
+        ]
       }
     ]
   },
@@ -25,19 +31,31 @@
     "items": [
       {
         "name": "设备管理",
-        "url": "page/device"
+        "url": "page/device",
+        "privileges": [
+          "device_manage"
+        ]
       },
       {
         "name": "报警日志",
-        "url": "page/alarm"
+        "url": "page/alarm",
+        "privileges": [
+          "data_view"
+        ]
       },
       {
         "name": "产品库",
-        "url": "page/product"
+        "url": "page/product",
+        "privileges": [
+          "device_manage"
+        ]
       },
       {
         "name": "协议库",
-        "url": "page/protocol"
+        "url": "page/protocol",
+        "privileges": [
+          "device_manage"
+        ]
       }
     ]
   },
@@ -48,12 +66,28 @@
     "items": [
       {
         "name": "组织管理",
-        "url": "page/group"
+        "url": "page/group",
+        "privileges": [
+          "system"
+        ]
       },
       {
         "name": "用户管理",
-        "url": "page/user"
+        "url": "page/user",
+        "privileges": [
+          "system"
+        ]
+      },
+      {
+        "name": "站点授权",
+        "url": "page/site_auth",
+        "privileges": [
+          "system"
+        ]
       }
+    ],
+    "privileges": [
+      "system"
     ]
   },
   {
@@ -85,6 +119,9 @@
         "name": "数据库配置",
         "url": "setting/database"
       }
+    ],
+    "privileges": [
+      "system"
     ]
   }
 ]

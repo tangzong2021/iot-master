@@ -1,0 +1,37 @@
+{
+  "name": "user_site",
+  "comment": "用户站点授权",
+  "fields": [
+    {
+      "name": "id",
+      "comment": "ID",
+      "type": "string",
+      "length": 50,
+      "primary": true
+    },
+    {
+      "name": "user_id",
+      "comment": "用户ID",
+      "type": "string",
+      "length": 50,
+      "indexed": true
+    },
+    {
+      "name": "site_id",
+      "comment": "站点(设备)ID",
+      "type": "string",
+      "length": 50
+    },
+    {
+      "name": "site_name",
+      "comment": "站点名称",
+      "type": "string",
+      "length": 255
+    },
+    {
+      "name": "created",
+      "comment": "创建时间",
+      "type": "time"
+    }
+  ]
+}

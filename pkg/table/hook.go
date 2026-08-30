@@ -1,6 +1,7 @@
 package table
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/javascript"
 )
 
@@ -142,3 +143,7 @@ func (h *Hook) Compile() error {
 
 	return nil
 }
+
+// RowFilter 行级数据过滤钩子：由外部（如站点授权）注册。
+// 按表名返回附加过滤条件（追加到查询），返回 nil 表示不过滤。
+var RowFilter func(ctx *gin.Context, table string) map[string]any

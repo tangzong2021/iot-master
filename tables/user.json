@@ -69,6 +69,24 @@
       "default": "false"
     },
     {
+      "name": "priv_system",
+      "comment": "系统管理",
+      "type": "bool",
+      "default": "false"
+    },
+    {
+      "name": "priv_device_manage",
+      "comment": "设备管理",
+      "type": "bool",
+      "default": "false"
+    },
+    {
+      "name": "priv_data_view",
+      "comment": "数据查看",
+      "type": "bool",
+      "default": "false"
+    },
+    {
       "name": "created",
       "comment": "创建时间",
       "type": "datetime",
