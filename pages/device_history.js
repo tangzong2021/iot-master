@@ -50,7 +50,7 @@ return {
       change_action: {
         type: 'script',
         script(data, index) {
-          //从下拉框选中因子后加入曲线并重置下拉框
+          //选中因子只累积，点「查询」才绘制
           const v = this.toolbar && this.toolbar.value ? this.toolbar.value.factor_sel : null
           if (!v) return
           if (!this.selPoints) this.selPoints = []
@@ -58,10 +58,10 @@ return {
             const f = (this.points || []).find(p => p.name === v)
             if (f) this.selPoints.push(f)
           }
-          this.load_history()
           setTimeout(() => {
             try { this.toolbar.group.get('factor_sel').reset() } catch (e) { }
           }, 150)
+          this.show_selected()
         }
       }
     },
@@ -205,7 +205,10 @@ return {
   // 页面挂载时执行
   mount() {
     this.toolbarValue = {
-      start: this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      start: this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'),
+      end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      window: 5,
+      unit: 'm'
     }
     this.ensure_points(() => {
       //URL带point参数时预选该因子（从实时值卡片点入的场景），否则默认不选
@@ -252,6 +255,16 @@ return {
         })
       }
     },
+    //刷新空图上的已选因子提示（不绘制）
+    show_selected() {
+      const sel = (this.selPoints || []).map(p => p.label || p.name)
+      const text = sel.length ? '已选因子：' + sel.join('、') + ' —— 点击「查询」绘制曲线' : '请在工具栏「选择因子」下拉框中点选要查看的因子，然后点击「查询」'
+      this.chartOption = Object.assign({}, this.chartOption, {
+        title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
+        series: []
+      })
+      this.mergeOption = {}
+    },
     //按已选因子绘制：每因子独立纵轴自适应
     load_history() {
       const points = this.selPoints || []
@@ -262,9 +275,11 @@ return {
         method: this.toolbar.value.method
       }
       if (!points.length) {
-        //默认空图：提示先选因子
+        //默认空图：显示已选因子或引导提示，点「查询」才绘制
+        const sel = (this.selPoints || []).map(p => p.label || p.name)
+        const text = sel.length ? '已选因子：' + sel.join('、') + ' —— 点击「查询」绘制曲线' : '请在工具栏「选择因子」下拉框中点选要查看的因子，然后点击「查询」'
         this.chartOption = Object.assign({}, this.chartOption, {
-          title: {text: '请在工具栏「选择因子」下拉框中点选要查看的因子', left: 'center', top: 'middle', textStyle: {color: '#999', fontSize: 15, fontWeight: 'normal'}},
+          title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
           xAxis: {type: 'time'},
           yAxis: {},
           legend: {data: []},
