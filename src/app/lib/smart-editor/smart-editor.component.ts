@@ -83,6 +83,8 @@ export interface SmartField {
   step?: number
 
   multiple?: boolean //多选
+  showSearch?: boolean //下拉可搜索
+  dropdownStyle?: any //下拉框样式（宽度等）
 
   auto?: SmartAutoOption[] //自动完成
   options?: SmartSelectOption[] //select参数
