@@ -58,6 +58,12 @@
       "indexed": true
     },
     {
+      "name": "gateway",
+      "comment": "是否网关",
+      "type": "bool",
+      "default": "false"
+    },
+    {
       "name": "product_id",
       "comment": "产品ID",
       "type": "string",
