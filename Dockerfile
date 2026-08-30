@@ -26,7 +26,9 @@ RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -g 1000 app && adduser -u 1000 -S -G app app
 
 # 二进制与插件目录放 /opt/iot-master，首次启动由 initContainer 播种到持久化目录 /app-data
-COPY --from=builder /out/iot-master /opt/iot-master/iot-master
+# 注意：二进制不能与配置查找名同名（iot-master），否则 viper 的裸文件名兜底会把 ELF 二进制
+# 当作配置文件解析（报 yaml control characters）；main.go 已硬编码配置名为 iot-master，改名无副作用
+COPY --from=builder /out/iot-master /opt/iot-master/iot-master-app
 COPY pages /opt/iot-master/pages
 COPY protocols /opt/iot-master/protocols
 COPY tables /opt/iot-master/tables
@@ -40,4 +42,4 @@ USER 1000
 
 EXPOSE 8080 1883
 
-ENTRYPOINT ["/opt/iot-master/iot-master"]
+ENTRYPOINT ["/opt/iot-master/iot-master-app"]
