@@ -263,24 +263,27 @@ return {
         })
 
         //每个因子一条独立纵轴，scale自适应数据区间，左右交替分布
+        //注意：必须整体替换 chartOption 引用，ngx-echarts 才会感知配置变化
         const n = points.length
         const nLeft = Math.ceil(n / 2)
-        this.chartOption.yAxis = points.map((p, i) => {
-          return {
-            type: 'value',
-            scale: true,
-            name: p.label || p.name,
-            position: i < nLeft ? 'left' : 'right',
-            offset: i < nLeft ? 36 * i : 36 * (i - nLeft),
-            axisLine: {show: true},
-            splitLine: {show: i === 0}
-          }
-        })
-        this.chartOption.grid = {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40}
-        //图例点选可显示/隐藏任意因子
-        this.chartOption.legend = {data: names, top: 0}
-        this.chartOption.series = names.map((name, i) => {
-          return {name: name, type: 'line', yAxisIndex: i, connectNulls: true}
+        const axisNames = points.map(p => p.label || p.name)
+        this.chartOption = Object.assign({}, this.chartOption, {
+          legend: {data: names, top: 0},
+          grid: {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40},
+          yAxis: points.map((p, i) => {
+            return {
+              type: 'value',
+              scale: true,
+              name: axisNames[i],
+              position: i < nLeft ? 'left' : 'right',
+              offset: i < nLeft ? 36 * i : 36 * (i - nLeft),
+              axisLine: {show: true},
+              splitLine: {show: i === 0}
+            }
+          }),
+          series: names.map((name, i) => {
+            return {name: name, type: 'line', yAxisIndex: i, connectNulls: true}
+          })
         })
 
         this.render(dataset)
