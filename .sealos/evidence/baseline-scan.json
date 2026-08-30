@@ -1,0 +1,447 @@
+{
+  "tool": "sealos-log-scan",
+  "generatedAt": "2026-08-30T03:09:56.785Z",
+  "namespace": "ns-y5hvuko4",
+  "app": "iot-master-xesstqle",
+  "since": "10m",
+  "tail": 300,
+  "minWindowSeconds": 60,
+  "baseline": {
+    "provided": false,
+    "generatedAt": null,
+    "elapsedSeconds": null,
+    "complete": false
+  },
+  "ok": false,
+  "dryRun": false,
+  "pods": [
+    {
+      "uid": "33b81467-58be-4345-806f-be43743a8509",
+      "name": "iot-master-xesstqle-0",
+      "phase": "Running",
+      "ready": true,
+      "completed": false,
+      "failed": false,
+      "lifecycle": "Running",
+      "ownerKind": null,
+      "readyTransitionTime": "2026-08-30T03:06:56Z",
+      "restartCount": 0,
+      "restartDelta": 0,
+      "replaced": false,
+      "readyTransitionChanged": false,
+      "labels": {
+        "app": "iot-master-xesstqle",
+        "apps.kubernetes.io/pod-index": "0",
+        "controller-revision-hash": "iot-master-xesstqle-84df9f759f",
+        "statefulset.kubernetes.io/pod-name": "iot-master-xesstqle-0"
+      },
+      "containers": [
+        {
+          "name": "bootstrap",
+          "type": "init",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://b833099301a85cdefa1d44e97bb658efafb142621b19f27a676dfbe4fc79c247",
+              "exitCode": 0,
+              "finishedAt": "2026-08-30T03:06:50Z",
+              "reason": "Completed",
+              "startedAt": "2026-08-30T03:06:34Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": "2026-08-30T03:06:50Z",
+          "exitCode": 0,
+          "terminationReason": "Completed",
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 1,
+              "signals": [],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "iot-master-xesstqle",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:51Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 16,
+              "signals": [],
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "7c03b533-4e57-45b8-a9b4-3f275fd90bbd",
+      "name": "iot-master-xesstqle-mysql-init-c9cx2",
+      "phase": "Succeeded",
+      "ready": false,
+      "completed": true,
+      "failed": false,
+      "lifecycle": "completed",
+      "ownerKind": "Job",
+      "readyTransitionTime": "2026-08-30T03:06:51Z",
+      "restartCount": 0,
+      "restartDelta": 0,
+      "replaced": false,
+      "readyTransitionChanged": false,
+      "labels": {
+        "batch.kubernetes.io/controller-uid": "45d48267-0915-4d66-a826-256816b7b98b",
+        "batch.kubernetes.io/job-name": "iot-master-xesstqle-mysql-init",
+        "controller-uid": "45d48267-0915-4d66-a826-256816b7b98b",
+        "job-name": "iot-master-xesstqle-mysql-init"
+      },
+      "containers": [
+        {
+          "name": "mysql-init",
+          "type": "main",
+          "ready": false,
+          "restartCount": 0,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://8d8698c946ec3176c1c7567d0dcc392d3cf979bb806c8a8f10db8d43d9445a7d",
+              "exitCode": 0,
+              "finishedAt": "2026-08-30T03:06:50Z",
+              "reason": "Completed",
+              "startedAt": "2026-08-30T03:06:39Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": "2026-08-30T03:06:50Z",
+          "exitCode": 0,
+          "terminationReason": "Completed",
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 3,
+              "signals": [],
+              "error": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "7fc11b0e-dc59-4a7f-a361-766ba10f0a85",
+      "name": "iot-master-xesstqle-mysql-mysql-0",
+      "phase": "Running",
+      "ready": true,
+      "completed": false,
+      "failed": false,
+      "lifecycle": "Running",
+      "ownerKind": null,
+      "readyTransitionTime": "2026-08-30T03:06:36Z",
+      "restartCount": 0,
+      "restartDelta": 0,
+      "replaced": false,
+      "readyTransitionChanged": false,
+      "labels": {
+        "app.kubernetes.io/component": "mysql",
+        "app.kubernetes.io/instance": "iot-master-xesstqle-mysql",
+        "app.kubernetes.io/managed-by": "kubeblocks",
+        "app.kubernetes.io/name": "apecloud-mysql",
+        "app.kubernetes.io/version": "",
+        "apps.kubeblocks.io/cluster-uid": "37dd1344-3b03-42e7-b25d-d4214b2bb104",
+        "apps.kubeblocks.io/component-name": "mysql",
+        "apps.kubeblocks.io/pod-name": "iot-master-xesstqle-mysql-mysql-0",
+        "cloud.sealos.io/deploy-on-sealos": "iot-master-xesstqle",
+        "clusterdefinition.kubeblocks.io/name": "apecloud-mysql",
+        "clusterversion.kubeblocks.io/name": "ac-mysql-8.0.30-1",
+        "controller-revision-hash": "6cf6d44bf9",
+        "kb.io/database": "ac-mysql-8.0.30-1",
+        "kubeblocks.io/role": "leader",
+        "sealos-db-provider-cr": "iot-master-xesstqle-mysql",
+        "workloads.kubeblocks.io/access-mode": "ReadWrite",
+        "workloads.kubeblocks.io/instance": "iot-master-xesstqle-mysql-mysql",
+        "workloads.kubeblocks.io/managed-by": "InstanceSet"
+      },
+      "containers": [
+        {
+          "name": "init-data",
+          "type": "init",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://0f32fe113feffeec747009ba8c7166a01c91ee0abfcb06fb7a13aa8c8d941058",
+              "exitCode": 0,
+              "finishedAt": "2026-08-30T03:06:27Z",
+              "reason": "Completed",
+              "startedAt": "2026-08-30T03:06:27Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": "2026-08-30T03:06:27Z",
+          "exitCode": 0,
+          "terminationReason": "Completed",
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 0,
+              "signals": [],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "mysql",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:27Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 131,
+              "signals": [],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "vttablet",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:27Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 0,
+              "signals": [],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "mysql-exporter",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:27Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 11,
+              "signals": [],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "lorry",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:28Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 300,
+              "signals": [
+                {
+                  "id": "error",
+                  "count": 11,
+                  "examples": [
+                    {
+                      "line": 9,
+                      "text": "2026-08-30T03:06:48Z\tERROR\tWeSQL\tCluster info query failed\t{\"error\": \"dial tcp 127.0.0.1:3306: connect: connection refused\"}"
+                    },
+                    {
+                      "line": 26,
+                      "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbadmin'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbadmin' on host '%'\"}"
+                    },
+                    {
+                      "line": 47,
+                      "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbadmin'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbadmin' on host '%'\"}"
+                    },
+                    {
+                      "line": 68,
+                      "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbdataprotection'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbdataprotection' on host '%'\"}"
+                    },
+                    {
+                      "line": 89,
+                      "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbdataprotection'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbdataprotection' on host '%'\"}"
+                    }
+                  ]
+                }
+              ],
+              "error": null
+            }
+          ]
+        },
+        {
+          "name": "config-manager",
+          "type": "main",
+          "ready": true,
+          "restartCount": 0,
+          "state": {
+            "running": {
+              "startedAt": "2026-08-30T03:06:28Z"
+            }
+          },
+          "lastState": {},
+          "completionTime": null,
+          "exitCode": null,
+          "terminationReason": null,
+          "historicalCompletedInit": false,
+          "statusSignals": [],
+          "streams": [
+            {
+              "name": "current",
+              "ok": true,
+              "lineCount": 8,
+              "signals": [],
+              "error": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "fingerprint": "33b81467-58be-4345-806f-be43743a8509|Unhealthy|Startup probe failed: Get \"http://10.107.0.18:8080/\": dial tcp 10.107.0.18:8080: connect: connection refused",
+      "uid": "1ba2e983-9a27-4e7f-827f-78ab6c1072f9",
+      "type": "Warning",
+      "reason": "Unhealthy",
+      "message": "Startup probe failed: Get \"http://10.107.0.18:8080/\": dial tcp 10.107.0.18:8080: connect: connection refused",
+      "count": 1,
+      "firstSeen": "2026-08-30T03:06:52Z",
+      "lastSeen": "2026-08-30T03:06:52Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "iot-master-xesstqle-0",
+        "uid": "33b81467-58be-4345-806f-be43743a8509"
+      },
+      "missingSecret": null,
+      "classification": "observed",
+      "baseline": null,
+      "delta": {
+        "count": null,
+        "lastSeenAdvanced": null,
+        "restartCount": null,
+        "readyTransitionChanged": null
+      },
+      "podReady": true,
+      "readyTransitionTime": "2026-08-30T03:06:56Z",
+      "occurredBeforeReady": true,
+      "secret": null
+    }
+  ],
+  "eventSummary": {
+    "observed": 1,
+    "historical-transient": 0,
+    "active-failure": 0
+  },
+  "findings": [
+    {
+      "source": "log",
+      "pod": "iot-master-xesstqle-mysql-mysql-0",
+      "container": "lorry",
+      "containerType": "main",
+      "stream": "current",
+      "signal": "error",
+      "count": 11,
+      "baseline": null,
+      "delta": null,
+      "examples": [
+        {
+          "line": 9,
+          "text": "2026-08-30T03:06:48Z\tERROR\tWeSQL\tCluster info query failed\t{\"error\": \"dial tcp 127.0.0.1:3306: connect: connection refused\"}"
+        },
+        {
+          "line": 26,
+          "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbadmin'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbadmin' on host '%'\"}"
+        },
+        {
+          "line": 47,
+          "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbadmin'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbadmin' on host '%'\"}"
+        },
+        {
+          "line": 68,
+          "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbdataprotection'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbdataprotection' on host '%'\"}"
+        },
+        {
+          "line": 89,
+          "text": "2026-08-30T03:06:49Z\tERROR\tWeSQL\texecute sql failed\t{\"sql\": \"SHOW GRANTS FOR 'kbdataprotection'@'%';\", \"error\": \"Error 1141 (42000): There is no such grant defined for user 'kbdataprotection' on host '%'\"}"
+        }
+      ]
+    }
+  ],
+  "observations": [],
+  "errors": []
+}

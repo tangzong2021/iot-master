@@ -1,0 +1,18 @@
+{
+  "instance": "iot-master-xesstqle",
+  "instance_uid": "04ec70d6-9513-4e74-b006-d13e7ccefb84",
+  "region": "https://gzg.sealos.run",
+  "deploy_url": "https://template.gzg.sealos.run/api/v2alpha/templates/raw",
+  "http_status": 201,
+  "template_path": ".sealos/template/index.yaml",
+  "resources": [
+    "instance",
+    "app",
+    "statefulset",
+    "service",
+    "ingress",
+    "configmap",
+    "cluster(mysql)",
+    "job(mysql-init)"
+  ]
+}

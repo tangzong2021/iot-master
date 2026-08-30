@@ -32,6 +32,8 @@ COPY --from=builder /out/iot-master /opt/iot-master/iot-master-app
 COPY pages /opt/iot-master/pages
 COPY protocols /opt/iot-master/protocols
 COPY tables /opt/iot-master/tables
+# 前端侧边栏菜单由 /api/menu 从工作目录读取 menu.json，必须随镜像分发并播种到持久化目录
+COPY menu.json /opt/iot-master/menu.json
 
 RUN chown -R 1000:1000 /opt/iot-master
 

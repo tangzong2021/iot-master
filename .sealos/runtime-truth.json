@@ -1,0 +1,53 @@
+{
+  "status": "verified",
+  "captured_at": "2026-08-30T03:15:00Z",
+  "identity": {
+    "app_name": "iot-master-xesstqle",
+    "namespace": "ns-y5hvuko4",
+    "image": "ghcr.io/tangzong2021/iot-master:v1.0.1",
+    "url": "https://iot-master-yusijvhr.sealosgzg.site"
+  },
+  "evidence_paths": [
+    ".sealos/evidence/baseline-scan.json",
+    ".sealos/evidence/final-scan.json"
+  ],
+  "redaction_status": "complete",
+  "stability_window_seconds": 60,
+  "checks": [
+    {
+      "name": "launchpad_network",
+      "status": "pass",
+      "detail": "ok=true, public domain open, port 8080 matched, host matched"
+    },
+    {
+      "name": "root_path_smoke",
+      "status": "pass",
+      "detail": "GET / returned HTTP 200 (SPA shell)"
+    },
+    {
+      "name": "login_flow",
+      "status": "pass",
+      "detail": "POST /api/login with admin bootstrap credentials succeeded; admin auto-created on first login"
+    },
+    {
+      "name": "authenticated_api",
+      "status": "pass",
+      "detail": "POST /api/table/device/count returned data=0 from live MySQL; POST /api/table/product/count HTTP 200"
+    },
+    {
+      "name": "negative_probe",
+      "status": "pass",
+      "detail": "missing static path returned SPA shell HTTP 200 without traceback logs"
+    },
+    {
+      "name": "log_hygiene",
+      "status": "pass",
+      "detail": "final scan with baseline: ok=true, zero new findings, zero active failures, 1 historical-transient startup event"
+    },
+    {
+      "name": "resource_footprint",
+      "status": "pass",
+      "detail": "app pod 1m CPU / 8Mi memory at limits 200m/256Mi, restarts=0; mysql 9m/214Mi at 500m/512Mi"
+    }
+  ]
+}
