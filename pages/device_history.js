@@ -229,6 +229,35 @@ return {
         window.__chartDebug = 'ERROR: ' + (e && e.message)
       }
     },
+    //渲染全因子数据表格（图表下方，参考站点数据报表样式）
+    render_data_table(table, times, points) {
+      let el = document.getElementById('history-data-table')
+      const host = document.querySelector('app-chart')
+      if (!host) return
+      if (!el) {
+        el = document.createElement('div')
+        el.id = 'history-data-table'
+        el.style.margin = '12px 0'
+        el.style.maxHeight = '380px'
+        el.style.overflow = 'auto'
+        host.appendChild(el)
+      }
+      if (!times.length) {
+        el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前时间范围内没有数据</div>'
+        return
+      }
+      const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
+      const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
+      let html = '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
+      html += '<thead><tr>' + th('时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
+      const max = 500 //最多渲染500行，防止大时间范围卡顿
+      times.slice(0, max).map(t => {
+        html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(table[t][p.name])).join('') + '</tr>'
+      })
+      html += '</tbody></table>'
+      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">仅显示前 ' + max + ' 行（共 ' + times.length + ' 行），请用导出CSV获取全部数据</div>'
+      el.innerHTML = html
+    },
     load_history_inner() {
       const points = this.points || [{name: this.params.point || 'value', label: this.params.point || '值'}]
       const query = {
@@ -293,6 +322,7 @@ return {
         })
         //不使用dataset，清空旧merge
         this.mergeOption = {}
+        this.render_data_table(table, times, points)
       })
     }
   }
