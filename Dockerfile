@@ -1,5 +1,15 @@
-# 多阶段构建：Go 静态编译 + Alpine 运行时
-# 前端使用仓库内已提交的 www/browser 产物（与 build.sh 一致，不在镜像内重编 Angular）
+# 多阶段构建：前端编译 + Go 静态编译 + Alpine 运行时
+# 说明：上游将编译产物 www/browser 提交在仓库中；为让 Angular 源码改动（如组件模板）
+# 生效，镜像构建时先用 node 编译最新前端，再覆盖到 Go 构建上下文完成内嵌
+FROM node:20-alpine AS web
+
+WORKDIR /web
+
+COPY package.json angular.json tsconfig.json tsconfig.app.json ./
+COPY src ./src
+COPY public ./public
+RUN npm install --no-audit --no-fund && npx ng build
+
 FROM golang:1.25-alpine AS builder
 
 ARG GOPROXY=https://goproxy.cn,direct
@@ -12,6 +22,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+# 用最新编译的前端覆盖仓库内嵌产物（go:embed www/browser）
+COPY --from=web /web/www/browser /src/www/browser
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags "-s -w \
