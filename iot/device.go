@@ -42,6 +42,9 @@ type Device struct {
 	linker   string
 	protocol string
 
+	//活跃时间（毫秒时间戳，用于超时离线判断，仅内存）
+	lastActive int64
+
 	validators []*Validator
 
 	//waitingResponse map[string]chan any
@@ -69,6 +72,9 @@ func (d *Device) PutValuesTime(ts int64, values map[string]any) {
 	if ts <= 0 {
 		ts = time.Now().UnixMilli()
 	}
+
+	//数据活跃（超时离线判断依据）
+	d.touch()
 
 	//TODO 过滤器实现
 

@@ -2,6 +2,7 @@ package iot
 
 import (
 	"errors"
+	"time"
 
 	"github.com/god-jason/iot-master/pkg/db"
 	"github.com/god-jason/iot-master/pkg/lib"
@@ -26,6 +27,8 @@ func LoadDevice(id string) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
+	//挂载即视为活跃，之后由offlineWatch按超时判定
+	d.lastActive = time.Now().UnixMilli()
 	devices.Store(id, &d)
 
 	return &d, nil

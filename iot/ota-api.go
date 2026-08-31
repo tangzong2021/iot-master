@@ -94,6 +94,9 @@ func firmwareUpgrade(ctx *gin.Context) {
 		}
 		return
 	}
+
+	//记录HTTP自助升级：设备拉到固件即产生升级记录（不论设备后续是否回报）
+	recordUpgrade(productId, imei, ver, version)
 }
 
 // latestVersion 查询产品最新启用固件版本（version.id 为 xid，按序即时间序）
@@ -299,6 +302,66 @@ func deviceFirmware(id string) string {
 	}
 	s, _ := doc["firmware"].(string)
 	return s
+}
+
+// recordUpgrade 记录一次固件下发（HTTP自助拉取）。
+// 同设备同版本存在未完成记录时直接复用，避免设备周期轮询产生重复记录
+func recordUpgrade(productId, deviceId string, ver map[string]any, fromVersion string) {
+	tab, err := table.Get("upgrade")
+	if err != nil {
+		return
+	}
+	vid, _ := ver["id"].(string)
+	rows, _ := tab.Find(&table.ParamSearch{
+		Limit:  1,
+		Filter: map[string]any{"device_id": deviceId, "version_id": vid, "status": "已下发"},
+	})
+	if len(rows) > 0 {
+		return
+	}
+	_, _ = tab.Insert(map[string]any{
+		"product_id":   productId,
+		"device_id":    deviceId,
+		"version_id":   vid,
+		"from_version": fromVersion,
+		"status":       "已下发",
+	})
+}
+
+// closeUpgradeRecords 设备上报固件版本后，关闭目标版本一致且未完成的升级记录（记为成功）。
+// 覆盖两种场景：HTTP自助升级拉取后设备重启上来新版本；MQTT下发升级设备只回报拉取成功但未回response
+func closeUpgradeRecords(deviceId, version string) {
+	if deviceId == "" || version == "" {
+		return
+	}
+	tab, err := table.Get("upgrade")
+	if err != nil {
+		return
+	}
+	rows, err := tab.Find(&table.ParamSearch{
+		Limit:  50,
+		Filter: map[string]any{"device_id": deviceId, "status": "已下发"},
+	})
+	if err != nil || len(rows) == 0 {
+		return
+	}
+	vtab, err := table.Get("version")
+	if err != nil {
+		return
+	}
+	for _, row := range rows {
+		vid, _ := row["version_id"].(string)
+		if vid == "" {
+			continue
+		}
+		ver, err := vtab.Get(vid, []string{"name"})
+		if err != nil || ver == nil {
+			continue
+		}
+		if name, _ := ver["name"].(string); name == version {
+			_, _ = tab.UpdateById(row["id"], map[string]any{"status": "成功"})
+		}
+	}
 }
 
 // UpgradeResponse 设备升级进度/结果上报

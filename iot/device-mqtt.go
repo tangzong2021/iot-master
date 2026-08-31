@@ -88,7 +88,12 @@ func mqttSubscribeDevice() {
 			if tab, err := table.Get("device"); err == nil {
 				_, _ = tab.UpdateById(reg.Id, map[string]any{"firmware": reg.Firmware})
 			}
+			//设备已运行到上报版本：关闭对应未完成的升级记录（覆盖HTTP自助升级无回报的场景）
+			closeUpgradeRecords(reg.Id, reg.Firmware)
 		}
+
+		//数据活跃（超时离线判断依据）
+		d.touch()
 
 		hasSync := false
 
@@ -378,6 +383,11 @@ func mqttSubscribeDevice() {
 		if data.DeviceId == "" {
 			id := strings.Split(topic, "/")[1]
 			data.DeviceId = id
+		}
+
+		//数据活跃（超时离线判断依据）
+		if d := devices.Load(data.DeviceId); d != nil {
+			d.touch()
 		}
 
 		//更新设备当前位置
