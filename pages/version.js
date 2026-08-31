@@ -54,6 +54,20 @@ return {
   keywords: ['id', 'name'],
   operators: [
     {
+      icon: 'cloud-upload',
+      title: '下发升级',
+      action: {
+        type: 'dialog',
+        page: 'version_upgrade',
+        params(data) {
+          return { id: data.id, product_id: data.product_id }
+        },
+        after_close(result, data, index) {
+          this.load()
+        }
+      }
+    },
+    {
       icon: 'edit',
       action: {
         type: 'dialog',

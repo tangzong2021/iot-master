@@ -83,6 +83,13 @@ func mqttSubscribeDevice() {
 			}
 		}
 
+		//记录设备自报固件版本
+		if reg.Firmware != "" {
+			if tab, err := table.Get("device"); err == nil {
+				_, _ = tab.UpdateById(reg.Id, map[string]any{"firmware": reg.Firmware})
+			}
+		}
+
 		hasSync := false
 
 		//同步配置

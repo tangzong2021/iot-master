@@ -1,0 +1,88 @@
+{
+  "name": "upgrade",
+  "comment": "升级记录",
+  "joins": [
+    {
+      "table": "device",
+      "local": "device_id",
+      "foreign": "id",
+      "fields": {
+        "name": "device_name"
+      }
+    },
+    {
+      "table": "version",
+      "local": "version_id",
+      "foreign": "id",
+      "fields": {
+        "name": "version_name"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "name": "id",
+      "comment": "ID",
+      "type": "string",
+      "length": 50,
+      "primary": true
+    },
+    {
+      "name": "product_id",
+      "comment": "产品ID",
+      "type": "string",
+      "length": 50,
+      "indexed": true
+    },
+    {
+      "name": "device_id",
+      "comment": "设备ID",
+      "type": "string",
+      "length": 50,
+      "indexed": true
+    },
+    {
+      "name": "version_id",
+      "comment": "固件版本ID",
+      "type": "string",
+      "length": 50
+    },
+    {
+      "name": "msg_id",
+      "comment": "指令ID",
+      "type": "string",
+      "length": 50,
+      "indexed": true
+    },
+    {
+      "name": "from_version",
+      "comment": "原版本",
+      "type": "string",
+      "length": 50
+    },
+    {
+      "name": "status",
+      "comment": "状态",
+      "type": "string",
+      "length": 20,
+      "default": "已下发"
+    },
+    {
+      "name": "error",
+      "comment": "错误",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "comment": "创建时间",
+      "type": "datetime",
+      "created": true
+    },
+    {
+      "name": "updated",
+      "comment": "更新时间",
+      "type": "datetime",
+      "updated": true
+    }
+  ]
+}

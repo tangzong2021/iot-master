@@ -21,6 +21,24 @@ return {
       }
     },
     {
+      icon: 'cloud-upload',
+      type: 'button',
+      label: '升级',
+      confirm: '确认向该设备下发最新固件？设备将自动下载并重启',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.request.post('device/' + data.id + '/upgrade', {}).subscribe(res => {
+            if (res.error) {
+              this.notification.error('升级失败', res.error)
+              return
+            }
+            this.notification.success('提示', '升级指令已下发，可在升级记录中查看进度')
+          })
+        }
+      }
+    },
+    {
       icon: 'delete',
       type: 'button',
       label: '删除',
@@ -80,6 +98,7 @@ return {
       }
     },
     { key: 'link_id', label: '连接ID', type: 'text' },
+    { key: 'firmware', label: '固件版本', type: 'text' },
     { key: 'online', label: '在线', type: 'boolean' },
     { key: 'error', label: '错误', type: 'boolean' },
     { key: 'error_string', label: '错误内容', type: 'text' },

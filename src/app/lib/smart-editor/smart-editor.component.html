@@ -67,8 +67,12 @@
     @case ('select') {
       <!--选项-->
       <nz-select [formControl]="control" [id]="field.id"
+        [nzMode]="field.multiple ? 'multiple' : 'default'"
         [nzOptions]="field.options || empty"
         [nzAllowClear]="field.clear || false"
+        [nzShowSearch]="!!field.showSearch"
+        [nzMaxTagCount]="3"
+        [nzDropdownStyle]="field.dropdownStyle || empty"
       [nzPlaceHolder]="field.placeholder || ''"></nz-select>
     }
     @case ('tags') {

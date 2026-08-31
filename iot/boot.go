@@ -20,6 +20,7 @@ func Startup() error {
 	//dev.Online = false
 	//_, _ = db.Engine().Where("online=1").Cols("online").Update(&dev)
 	mqttSubscribeDevice()
+	mqttSubscribeUpgrade()
 
 	return addProtocolColumns()
 }

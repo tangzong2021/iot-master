@@ -55,6 +55,13 @@
         ]
       },
       {
+        "name": "升级记录",
+        "url": "page/upgrade",
+        "privileges": [
+          "device_manage"
+        ]
+      },
+      {
         "name": "产品库",
         "url": "page/product",
         "privileges": [

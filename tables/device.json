@@ -78,6 +78,12 @@
       "indexed": true
     },
     {
+      "name": "firmware",
+      "comment": "固件版本",
+      "type": "string",
+      "length": 50
+    },
+    {
       "name": "name",
       "comment": "名称",
       "type": "string",
