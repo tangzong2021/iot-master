@@ -5,14 +5,19 @@
     "items": [
       {
         "name": "控制台",
-        "url": "page/dash"
+        "url": "page/dash",
+        "privileges": [
+          "device_manage",
+          "system"
+        ]
       },
       {
         "name": "数据大屏",
         "url": "full/screen",
         "external": true,
         "privileges": [
-          "data_view"
+          "device_manage",
+          "system"
         ]
       },
       {
@@ -23,6 +28,11 @@
           "system"
         ]
       }
+    ],
+    "privileges": [
+      "device_manage",
+      "system",
+      "data_view"
     ]
   },
   {

@@ -57,7 +57,12 @@ export class LoginComponent {
       if (data.user)
         this.us.set(data.user)
 
-      this.router.navigateByUrl('/')
+      //只有数据查看权限的用户，登录后直接进入设备数据页
+      const u = data.user || {}
+      if (u.admin || u.priv_device_manage || u.priv_system)
+        this.router.navigateByUrl('/')
+      else
+        this.router.navigateByUrl('/page/device')
       //this.router.navigate(["/"])
     })
   }
