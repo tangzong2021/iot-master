@@ -16,7 +16,7 @@ return {
     { key: 'priv_system', label: '系统管理', type: 'checkbox' }
   ],
   toolbar: [
-    { type: 'button', label: '站点授权', action: { type: 'script', script(data, index) { this.navigate('/page/site_auth?id=' + this.params.id) } } }
+    { type: 'button', label: '站点授权', action: { type: 'dialog', page: 'site_auth', params(data, index) { return {id: this.params.id} } } }
   ],
   load_api: 'table/user/detail/:id',
   submit_api: 'table/user/update/:id'
