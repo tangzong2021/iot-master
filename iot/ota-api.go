@@ -16,6 +16,7 @@ import (
 	"github.com/god-jason/iot-master/pkg/mqtt"
 	"github.com/god-jason/iot-master/pkg/table"
 	"github.com/rs/xid"
+	"github.com/spf13/cast"
 )
 
 func init() {
@@ -96,23 +97,27 @@ func firmwareUpgrade(ctx *gin.Context) {
 }
 
 // latestVersion 查询产品最新启用固件版本（version.id 为 xid，按序即时间序）
+// 注意：API创建的记录 disabled 可能为 NULL，SQL过滤匹配不上，取回后在Go侧判断
 func latestVersion(productId string) (map[string]any, error) {
 	tab, err := table.Get("version")
 	if err != nil {
 		return nil, err
 	}
 	rows, err := tab.Find(&table.ParamSearch{
-		Limit:  1,
-		Filter: map[string]any{"product_id": productId, "disabled": false},
+		Limit:  50,
+		Filter: map[string]any{"product_id": productId},
 		Sort:   map[string]int{"id": -1},
 	})
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) == 0 {
-		return nil, errors.New("该产品没有可用固件版本")
+	for _, row := range rows {
+		if cast.ToBool(row["disabled"]) {
+			continue
+		}
+		return row, nil
 	}
-	return rows[0], nil
+	return nil, errors.New("该产品没有可用固件版本")
 }
 
 // serveFirmware 输出固件文件：平台上传的本地文件直接读取，外部地址代理转发
