@@ -32,7 +32,10 @@
 
 ## 三、设备侧（LuatOS Lua 脚本）
 
-参考 [LuatOS-FOTA设备端示例.lua](./LuatOS-FOTA设备端示例.lua)，要点：
+参考 [LuatOS-FOTA设备端示例.lua](./LuatOS-FOTA设备端示例.lua)（2026-08-31 修复版：修正了旧示例中 `mqtt.EVENT` 常量不存在、`mqtt.create` 第5参数误用、`subscribe` 传回调函数三处致命错误）。完整模块化测试工程（mqtt_app/fota_app/version_app 拆分 + 烧录联调 README）：
+`C:\Users\13395\Desktop\小测试\780E功能测试\数采测试\Air780E\demo\fota2-iotmaster`
+
+要点：
 
 ```lua
 -- 1) 收到升级指令后，用 libfota2 下载（"###"=URL完全按平台下发的用）
@@ -53,8 +56,15 @@ end
 publish("device/"..DEVICE_ID.."/register", { id=DEVICE_ID, firmware=VERSION })
 ```
 
+设备 ID 与触发方式：
+
+- **设备 ID 默认取模组真实 IMEI**（`USE_IMEI=true`，联网后 `mobile.imei()`）：平台须以设备标签上的 IMEI 为 ID 创建设备并归属产品；一批设备共用一份脚本。设 `USE_IMEI=false` 可改用固定设备 ID（如 MQTTX 联调用的 `pc-test-002`）；
+- **开机自检**：设备就绪后自动 GET 升级接口，有新版即下载重启，无新版返回 304；升级完成重启后再次自检因版本已相同返回 304，不会循环升级；
+- **定时自检**：周期由脚本内 `FOTA_CHECK_INTERVAL` 配置（默认 4 小时，联调可改 2 分钟）。
+
 升级脚本注意事项（合宙官方要求）：
 - 新旧脚本 `PROJECT` 必须一致，`VERSION` 必须**大于**旧版（不支持降级）
+- **MQTT 走 wss（WebSocket）通道需要 2025.09.23 之后的底层 core**（Luatools 在线选最新 core）；HTTP 自检通道不受 core 限制
 - 仅升级脚本：Luatools 勾选"升级文件包含脚本"；含底层core升级：需用合宙差分工具生成差分包
 - 异常断电不会变砖：下载完成后要**重启过程**才校验刷写，失败自动回滚
 - 连续6次循环升级失败，core会禁止升级（防变砖保护）

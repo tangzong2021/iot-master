@@ -1,84 +1,81 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 -- =====================================================================
--- 官方 fota2 demo 的 iot-master 平台对接版（结构保留自官方demo）
---   原版: demo/fota2/main.lua (合宙IoT平台模式)
---   本版改动:
---     1. ota_opts.url 指向 iot-master 平台 /api/site/firmware_upgrade
---        (### 开头 = url已带全部参数, libfota2不再追加合宙参数)
---     2. 增加 MQTT 任务: 平台点"下发升级"立即触发, 不只靠定时自检
---     3. 升级进度/结果回传平台, 平台"升级记录"页可见
---     4. MQTT连上后发 register 上报当前固件版本, 平台设备详情可见
+-- iot-master 平台 FOTA 设备端示例（合宙 LuatOS，Air780E 等系列通用）
+-- 2026-08-31 修复版：旧版示例有三处致命错误（mqtt.EVENT常量不存在导致运行即崩、
+--   mqtt.create第5参数实为isipv6而非websocket、subscribe把函数当qos传），
+--   已按 LuatOS 官方源码与 API 文档修正；另将循环重建连接改为单连接+autoreconn。
+-- 完整模块化测试工程（拆分mqtt_app/fota_app/version_app，含烧录联调README）：
+--   C:\Users\13395\Desktop\小测试\780E功能测试\数采测试\Air780E\demo\fota2-iotmaster
 --
--- 升级测试流程:
---   ① 本目录 Luatools 烧录(底层+脚本), 设备开机自动连平台, 定时自检升级
---   ② 改 VERSION(如 1.0.0 -> 1.0.1), Luatools 勾"升级文件包含脚本"打包 .bin
---   ③ 平台 产品详情→固件版本→创建: 名称填新版本号(必须与VERSION一致), 上传.bin
---   ④ 平台点该行"下发升级"(或等设备4小时自检) -> 自动下载重启完成升级
+-- 两条升级通道：
+--   A. 平台点"下发升级" -> MQTT指令 device/{id}/upgrade -> libfota2按url下载
+--   B. 开机自检 + 定时自检 -> HTTP /api/site/firmware_upgrade (libfota2直连)
+-- 注意：MQTT走wss(WebSocket)需要2025.09.23之后的底层core；HTTP自检通道不受限
 -- =====================================================================
 PROJECT = "fotademo"
--- 平台按脚本VERSION字符串匹配: 与平台固件版本名称相同时, 平台返回304=已是最新
--- 因此建议版本号一路递增: 1.0.0 -> 1.0.1 -> 1.0.2 ...
+-- 平台按VERSION字符串精确匹配固件版本名：相同则304=已是最新；版本号一路递增(不支持降级)
 VERSION = "1.0.0"
 
--- ===== 对接 iot-master 平台配置（按实际环境修改）=====
-local PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site"
-local DEVICE_ID     = "pc-test-002" -- 平台上的设备ID, 升级接口用它匹配设备/产品
+-- ===== 平台配置（按实际环境修改）=====
+PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site"
+USE_IMEI  = true  -- true=联网后取模组真实IMEI作为设备ID(平台需以IMEI为ID建设备)
+DEVICE_ID = ""    -- USE_IMEI=false时填固定设备ID，如"pc-test-002"
+FOTA_CHECK_INTERVAL = 4 * 3600000 -- 定时自检升级周期(毫秒)，联调可改2*60*1000
 
 sys = require "sys"
 libfota2 = require "libfota2"
 
-local T_UPGRADE  = "device/" .. DEVICE_ID .. "/upgrade"
-local T_RESPONSE = "device/" .. DEVICE_ID .. "/upgrade/response"
-local cur_msg_id = ""
 local mqttc = nil
+local cur_msg_id = "" -- 当前升级任务的msg_id，上报时原样回传
+local cur_target = "" -- 平台下发的目标版本号，success上报时回传
 
--- 联网函数, 可自行删减
-sys.taskInit(function()
-    -- 默认都等到联网成功
-    sys.waitUntil("IP_READY")
-    log.info("4G网络链接成功")
-    sys.publish("net_ready")
-end)
+-- 按当前设备ID动态拼主题(USE_IMEI时设备ID联网后才确定，不能在文件加载时拼死)
+local function topic(suffix)
+    return "device/" .. DEVICE_ID .. "/" .. suffix
+end
 
--- 循环打印版本号, 方便看版本号变化, 非必须
-sys.taskInit(function()
-    while 1 do
-        sys.wait(5000)
-        log.info("fota", "脚本版本号", VERSION, "core版本号", rtos.version())
+-- 设备日志上报：平台"设备日志"页可见，免串口看测试进度
+local function devlog(msg)
+    if mqttc ~= nil then
+        mqttc:publish(topic("log"), msg, 1)
     end
-end)
+end
 
 -- 上报升级进度/结果给平台 (status: downloading/success/fail)
+-- 平台按 msg_id+device_id 匹配升级记录；version非空时回写设备"固件版本"
 local function report(status, error, version)
     if mqttc == nil then return end
     local body = { msg_id = cur_msg_id, status = status }
     if error then body.error = error end
     if version then body.version = version end
-    mqttc:publish(T_RESPONSE, json.encode(body), 1)
+    mqttc:publish(topic("upgrade/response"), json.encode(body), 1)
 end
 
--- 升级结果的回调函数
--- result: 0成功 1连接失败 2url错误 3服务器断开 4接收报文错误(含服务器返回304=已是最新) 5缺PROJECT_KEY
+-- 升级结果回调: 0成功 1连接失败 2url错误 3服务器断开 4报文错误(含304=已是最新) 5缺PROJECT_KEY
 local function fota_cb(ret)
     log.info("fota", ret)
     if ret == 0 then
-        log.info("升级包下载成功,重启模块")
-        report("success", nil, VERSION)
-        sys.timerStart(rtos.reboot, 1000) -- 留1秒让上报报文发出
+        log.info("升级包下载成功,1秒后重启刷写")
+        report("success", nil, cur_target ~= "" and cur_target or nil)
+        devlog("FOTA下载成功,重启刷写")
+        cur_msg_id, cur_target = "", ""
+        sys.wait(1000) -- 留1秒让上报报文发出
+        rtos.reboot()
     elseif ret == 1 then
-        log.info("连接失败", "请检查url拼写或服务器配置(是否为内网)")
+        log.error("连接失败", "请检查url拼写或服务器配置(是否为内网)")
         report("fail", "1 connect fail")
     elseif ret == 2 then
-        log.info("url错误", "检查url拼写")
+        log.error("url错误", "检查url拼写")
         report("fail", "2 url error")
     elseif ret == 3 then
-        log.info("服务器断开", "检查服务器白名单配置")
+        log.error("服务器断开", "检查服务器白名单配置")
         report("fail", "3 server closed")
     elseif ret == 4 then
-        log.info("接收报文错误", "通常是服务器返回304=已是最新, 或升级包损坏")
-        -- 已是最新不算失败, 不上报fail
+        -- 304已是最新属正常PASS，不算失败
+        log.info("304已是最新, 属正常")
+        devlog("自检:已是最新版本")
     elseif ret == 5 then
-        log.info("缺少必要的PROJECT_KEY参数")
+        log.error("缺少必要的PROJECT_KEY参数")
         report("fail", "5 no project key")
     else
         log.info("不是上面几种情况 ret为", ret)
@@ -86,68 +83,84 @@ local function fota_cb(ret)
     end
 end
 
--- 平台升级参数 (官方demo注释段的启用版, 指向 iot-master)
--- 平台契约: 200=返回固件内容, 304=已是最新
--- 如设备上https下载失败(回调1/4), 可把 https 改成 http 再试
-local ota_opts = {
-    -- ### 开头 = 完全按此url请求; version参数必须传当前脚本版本号
-    url = "###https://" .. PLATFORM_HOST ..
-          "/api/site/firmware_upgrade?imei=" .. DEVICE_ID .. "&version=" .. VERSION,
-    imei = DEVICE_ID, -- 覆盖模块默认IMEI, 平台按设备ID匹配
-}
+-- 平台升级参数：###开头=URL完全按此请求；version必须传当前脚本版本号
+-- 设备ID联网后才确定(USE_IMEI)，每次请求时构造；https下载失败可改http
+local function build_opts()
+    return {
+        url = "###https://" .. PLATFORM_HOST ..
+              "/api/site/firmware_upgrade?imei=" .. DEVICE_ID .. "&version=" .. VERSION,
+        imei = DEVICE_ID,
+    }
+end
 
--- 开机检查一次升级
-sys.taskInit(function()
-    sys.waitUntil("net_ready")
-    log.info("开始检查升级")
-    sys.wait(500)
-    libfota2.request(fota_cb, ota_opts)
-end)
+-- 平台下发升级的下载task(libfota2内部会sys.wait，不能在订阅回调上下文直接跑)
+local function download_task(url)
+    report("downloading") -- 平台"升级记录"变"下载中"
+    devlog("开始下载固件")
+    libfota2.request(fota_cb, { url = "###" .. url })
+end
 
--- 演示定时自动升级, 每隔4小时自动检查一次
-sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
-
--- ===== MQTT 任务: 平台"下发升级"立即触发 =====
--- 走 WebSocket(与MQTTX一致): wss://域名/mqtt, 平台侧此通道匿名
-local function mqtt_task()
-    while true do
-        mqttc = mqtt.create(nil, PLATFORM_HOST, 443, true, true) -- ssl + websocket
-        mqttc:auth(DEVICE_ID) -- WebSocket通道匿名, 用户名填设备ID即可
-        mqttc:on(mqtt.EVENT.CONNACK, function(sc, connack)
-            if connack.rc == 0 then
-                log.info("mqtt", "connected")
-                sc:subscribe(T_UPGRADE, function()
-                    log.info("mqtt", "subscribed", T_UPGRADE)
-                end)
-                -- 注册上报: 平台自动记录当前固件版本(设备详情"固件版本")
-                sc:publish("device/" .. DEVICE_ID .. "/register",
-                    json.encode({ id = DEVICE_ID, firmware = VERSION }), 1)
-            else
-                log.warn("mqtt", "connack rc", connack.rc)
+-- MQTT事件回调：LuatOS只有单回调形式，事件是字符串("conack"/"recv")，
+-- 没有mqtt.EVENT常量；conack不携带数据(没有rc字段)，收到即连接成功
+local function mqtt_cb(mqtt_client, event, data, payload)
+    log.info("mqtt", "event", event)
+    if event == "conack" then
+        mqtt_client:subscribe(topic("upgrade"))
+        -- 注册上报：平台自动记录当前固件版本(设备详情"固件版本")
+        mqtt_client:publish(topic("register"),
+            json.encode({ id = DEVICE_ID, firmware = VERSION }), 1)
+        devlog("设备上线,脚本版本" .. VERSION)
+    elseif event == "recv" then
+        log.info("mqtt", "recv", data)
+        if data == topic("upgrade") then
+            local ok, cmd = pcall(json.decode, payload or "")
+            if not ok or type(cmd) ~= "table" or not cmd.url then
+                report("fail", "bad upgrade payload")
+                return
             end
-        end)
-        mqttc:on(mqtt.EVENT.RECV, function(sc, data)
-            log.info("mqtt", "recv", data.topic)
-            if data.topic == T_UPGRADE then
-                local ok, cmd = pcall(json.decode, data.payload or "")
-                if not ok or type(cmd) ~= "table" or not cmd.url then
-                    report("fail", "bad upgrade payload")
-                    return
-                end
-                cur_msg_id = cmd.msg_id or ""
-                -- 升级下载放在task里执行
-                sys.taskInit(function(u)
-                    report("downloading")
-                    libfota2.request(fota_cb, { url = "###" .. u })
-                end, cmd.url)
-            end
-        end)
-        mqttc:autoreconn(true, 10000)
-        mqttc:connect()
-        sys.wait(30000) -- 兜底重连周期
+            cur_msg_id = cmd.msg_id or ""
+            cur_target = cmd.version or ""
+            sys.taskInit(download_task, cmd.url)
+        end
     end
 end
+
+-- 联网+MQTT任务：只创建一次连接，重连交给autoreconn(重连成功会再次conack，
+-- 自动重新订阅和register；不要循环重建连接，相同client_id会互踢下线)
+local function mqtt_task()
+    sys.waitUntil("IP_READY")
+    log.info("4G网络链接成功")
+    if USE_IMEI then
+        DEVICE_ID = mobile.imei()
+        log.info("device", "设备ID取IMEI", DEVICE_ID)
+    end
+    -- wss://前缀由LuatOS底层识别为WebSocket模式(第5个参数是isipv6，不是websocket!)
+    mqttc = mqtt.create(nil, "wss://" .. PLATFORM_HOST .. "/mqtt", 443, true)
+    mqttc:auth(DEVICE_ID) -- WebSocket通道匿名，用户名填设备ID即可
+    mqttc:autoreconn(true, 10000)
+    mqttc:on(mqtt_cb)
+    mqttc:connect()
+    while true do
+        sys.wait(60000) -- 连接与重连由autoreconn维护，task保活即可
+    end
+end
+
+-- 开机自检：等设备ID就绪(USE_IMEI模式下联网后填充)再检查
+local function boot_check_task()
+    while DEVICE_ID == nil or DEVICE_ID == "" do
+        sys.wait(200)
+    end
+    log.info("开始检查升级")
+    sys.wait(500)
+    libfota2.request(fota_cb, build_opts())
+end
+
 sys.taskInit(mqtt_task)
+sys.taskInit(boot_check_task)
+-- 定时自检升级，周期见FOTA_CHECK_INTERVAL
+sys.timerLoopStart(function()
+    libfota2.request(fota_cb, build_opts())
+end, FOTA_CHECK_INTERVAL)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
