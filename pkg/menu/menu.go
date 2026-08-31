@@ -3,11 +3,13 @@ package menu
 import (
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/api"
 	"github.com/god-jason/iot-master/pkg/db"
+	"github.com/god-jason/iot-master/pkg/web"
 )
 
 type Item struct {
@@ -47,20 +49,45 @@ func init() {
 			return
 		}
 
-		//读取会话（该路由未挂登录中间件，需自行取会话）
+		//身份解析：优先JWT（与mustLogin一致），其次cookie会话
 		uid := ""
 		admin := false
-		session := sessions.Default(ctx)
-		if v := session.Get("user"); v != nil {
-			uid, _ = v.(string)
+		token := ctx.Request.URL.Query().Get("token")
+		if token == "" {
+			token = ctx.Request.Header.Get("Authorization")
+			if tkn, has := strings.CutPrefix(token, "Bearer "); has {
+				token = tkn
+			}
 		}
-		if a := session.Get("admin"); a != nil {
-			admin, _ = a.(bool)
+		if token != "" {
+			if claims, err := web.JwtVerify(token); err == nil {
+				uid = claims.ID
+				admin = claims.Admin
+			}
+		}
+		if uid == "" {
+			session := sessions.Default(ctx)
+			if v := session.Get("user"); v != nil {
+				uid, _ = v.(string)
+			}
+			if a := session.Get("admin"); a != nil {
+				admin, _ = a.(bool)
+			}
 		}
 		if uid == "" {
 			//无会话：返回空（菜单只在登录后的布局中拉取）
 			ctx.JSON(200, []Menu{})
 			return
+		}
+		if !admin {
+			//兜底：按用户表admin标志，避免旧令牌/会话丢失admin标志
+			type adminRow struct {
+				Admin bool `json:"admin"`
+			}
+			var r adminRow
+			if has, err := db.Engine().Table("user").Where("id=?", uid).Get(&r); err == nil && has && r.Admin {
+				admin = true
+			}
 		}
 		if admin {
 			ctx.JSON(200, menus)
