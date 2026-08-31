@@ -87,7 +87,7 @@ return {
         const label = (d.name || d.id) + '（' + d.id + '）' + (d.product_name ? ' [' + d.product_name + ']' : '')
         const row = document.createElement('label')
         row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer'
-        row.innerHTML = '<input type="checkbox" id="' + id + '"' + (bindings[d.id] ? ' checked' : '') + '>' +
+        row.innerHTML = '<input type="checkbox" id="' + id + '" data-name="' + (d.name || d.id) + '"' + (bindings[d.id] ? ' checked' : '') + '>' +
           '<span>' + label + '</span>' +
           (bindings[d.id] ? '<small style="color:#52c41a">已授权</small>' : '')
         list.appendChild(row)
@@ -121,11 +121,13 @@ return {
           if (--total <= 0) this.notification.success('提示', '站点授权已保存')
         }
         toAdd.map(sid => {
+          const cb = document.getElementById('sa-' + sid)
+          const sname = cb && cb.dataset ? cb.getAttribute('data-name') || sid : sid
           this.request.post('table/user_site/create', {
             id: 'us-' + sid + '-' + uid,
             user_id: uid,
             site_id: sid,
-            site_name: (devices.find(d => d.id === sid) || {}).name || sid
+            site_name: sname
           }).subscribe(done)
         })
         toDel.map(sid => {
