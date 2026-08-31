@@ -131,7 +131,7 @@ return {
           }).subscribe(done)
         })
         toDel.map(sid => {
-          this.request.post('table/user_site/delete/' + old[sid].id, {}).subscribe(done)
+          this.request.get('table/user_site/delete/' + old[sid].id).subscribe(done)
         })
       })
     }
