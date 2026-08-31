@@ -55,9 +55,17 @@ return {
               { label: '故障', key: 'error' }
             ],
             mount() {
-              this.data = this.content.demo
-            },
-            demo: { total: 10, online: 9, error: 0 }
+              this.data = {}
+              this.request.post('table/device/count', {}).subscribe(res => {
+                this.data.total = res.data
+              })
+              this.request.post('table/device/count', { filter: { online: 1 } }).subscribe(res => {
+                this.data.online = res.data
+              })
+              this.request.post('table/device/count', { filter: { error: 1 } }).subscribe(res => {
+                this.data.error = res.data
+              })
+            }
           }
         },
         {
@@ -67,7 +75,7 @@ return {
             children: [
               {
                 content: {
-                  title: '使用统计',
+                  title: '各产品设备数量',
                   icon: '/emoji/chart.svg',
                   template: 'chart',
                   style: { margin: '5px' },
@@ -75,14 +83,17 @@ return {
                   theme: 'dark',
                   bodyStyle: { color: 'white', padding: 0 },
                   mount() {
-                    this.render(this.content.demo)
-                  },
-                  demo: [
-                    ['一月', 2],
-                    ['二月', 5],
-                    ['三月', 5],
-                    ['四月', 7]
-                  ]
+                    this.request.post('table/device/group', {
+                      by: ['product_id'],
+                      aggregators: [{ func: 'count', field: 'id', as: 'cnt' }],
+                      joins: [
+                        { table: 'product', local: 'product_id', foreign: 'id', fields: { name: 'product_name' } }
+                      ]
+                    }).subscribe(res => {
+                      const data = [['产品', '设备数'], ...(res.data || []).map(i => [i.product_name || '未知产品', i.cnt])]
+                      this.render(data)
+                    })
+                  }
                 }
               },
               {
