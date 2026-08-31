@@ -57,7 +57,12 @@ func init() {
 		if a := session.Get("admin"); a != nil {
 			admin, _ = a.(bool)
 		}
-		if uid == "" || admin {
+		if uid == "" {
+			//无会话：返回空（菜单只在登录后的布局中拉取）
+			ctx.JSON(200, []Menu{})
+			return
+		}
+		if admin {
 			ctx.JSON(200, menus)
 			return
 		}

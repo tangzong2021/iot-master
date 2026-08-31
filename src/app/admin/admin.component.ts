@@ -94,17 +94,28 @@ export class AdminComponent {
   }
 
   loadMenu() {
-    this.request.get("menu").subscribe((res) => {
+    this.request.get("menu?t=" + Date.now()).subscribe((res) => {
       if (res.error) return
-      if (this.us.user.admin)
+      if (this.us.user.admin) {
         this.menus = res
-      else
-        //不显示管理员项
-        this.menus = res.filter((m:any)=> {
-          if (m.items)
-          m.items = m.items.filter((i:any)=>!i.admin)
-          return !m.admin
+        return
+      }
+      //双保险：按本地用户权限再过滤一遍（防陈旧响应/会话切换缓存）
+      const u = this.us.user || {}
+      const privs: any = {
+        data_view: !!u.priv_data_view,
+        device_manage: !!u.priv_device_manage,
+        system: !!u.priv_system
+      }
+      const allow = (tags: string[] | undefined) => !tags || !tags.length || tags.some((t: string) => privs[t])
+      this.menus = res
+        .map((m: any) => {
+          if (!allow(m.privileges)) return null
+          const items = (m.items || []).filter((i: any) => !i.admin && allow(i.privileges))
+          if (!items.length) return null
+          return Object.assign({}, m, {items})
         })
+        .filter((m: any) => m)
     })
   }
 
