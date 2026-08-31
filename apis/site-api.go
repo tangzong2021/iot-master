@@ -4,12 +4,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/api"
 	"github.com/god-jason/iot-master/pkg/db"
+	"github.com/god-jason/iot-master/pkg/log"
 	"github.com/god-jason/iot-master/pkg/table"
 )
 
 func init() {
 	//行级过滤：非管理员在 device 表只查看被授权（绑定）的站点
 	table.RowFilter = func(ctx *gin.Context, name string) map[string]any {
+		log.Info("RowFilter called: table=", name, " admin=", ctx.GetBool("admin"), " uid=", ctx.GetString("user"))
 		if name != "device" {
 			return nil
 		}
@@ -21,6 +23,7 @@ func init() {
 			return nil
 		}
 		ids := GetUserSiteIds(uid)
+		log.Info("RowFilter ids for ", uid, ": ", ids)
 		if len(ids) == 0 {
 			//未绑定任何站点：返回不可能匹配的值，保证结果为空
 			return map[string]any{"id": "__no_site__"}
