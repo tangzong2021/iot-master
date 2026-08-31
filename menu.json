@@ -33,6 +33,7 @@
         "name": "设备管理",
         "url": "page/device",
         "privileges": [
+          "data_view",
           "device_manage"
         ]
       },

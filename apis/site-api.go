@@ -1,6 +1,8 @@
 package apis
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/api"
 	"github.com/god-jason/iot-master/pkg/db"
@@ -29,6 +31,29 @@ func init() {
 		return map[string]any{"id": map[string]any{"$in": ids}}
 	}
 
+	//写操作守卫：数据查看=只读；设备管理才能写业务表；系统表仅系统权限
+	table.WriteGuard = func(ctx *gin.Context, name string, op string) error {
+		if ctx.GetBool("admin") {
+			return nil
+		}
+		uid := ctx.GetString("user")
+		if uid == "" {
+			return errors.New("未授权")
+		}
+		priv := loadPrivs(uid)
+		systemTables := map[string]bool{"user": true, "user_site": true, "group": true, "member": true, "password": true}
+		if systemTables[name] {
+			if !priv["system"] {
+				return errors.New("无权限：需要系统管理权限")
+			}
+			return nil
+		}
+		if !priv["device_manage"] {
+			return errors.New("无权限：数据查看为只读，需要设备管理权限才能修改")
+		}
+		return nil
+	}
+
 	//当前用户被授权的站点列表（供前端展示）
 	api.Register("GET", "site/my", func(ctx *gin.Context) {
 		uid := ctx.GetString("user")
@@ -44,6 +69,29 @@ func init() {
 		}
 		api.OK(ctx, rows)
 	})
+}
+
+// loadPrivs 读取用户权限集合
+func loadPrivs(uid string) map[string]bool {
+	priv := map[string]bool{}
+	type row struct {
+		PrivDataView     bool `json:"priv_data_view"`
+		PrivDeviceManage bool `json:"priv_device_manage"`
+		PrivSystem       bool `json:"priv_system"`
+	}
+	var r row
+	if has, err := db.Engine().Table("user").Where("id=?", uid).Get(&r); err == nil && has {
+		if r.PrivDataView {
+			priv["data_view"] = true
+		}
+		if r.PrivDeviceManage {
+			priv["device_manage"] = true
+		}
+		if r.PrivSystem {
+			priv["system"] = true
+		}
+	}
+	return priv
 }
 
 // GetUserSiteIds 查询用户被授权的站点ID列表

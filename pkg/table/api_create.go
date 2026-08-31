@@ -13,6 +13,13 @@ func ApiCreate(ctx *gin.Context) {
 		return
 	}
 
+	if WriteGuard != nil {
+		if err := WriteGuard(ctx, table.Name, "create"); err != nil {
+			Error(ctx, err)
+			return
+		}
+	}
+
 	var doc Document
 	err = ctx.ShouldBindJSON(&doc)
 	if err != nil {

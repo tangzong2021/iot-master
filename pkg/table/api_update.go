@@ -24,6 +24,13 @@ func ApiUpdate(ctx *gin.Context) {
 
 	id := strings.TrimLeft(ctx.Param("id"), "/")
 
+	if WriteGuard != nil {
+		if err := WriteGuard(ctx, table.Name, "update"); err != nil {
+			Error(ctx, err)
+			return
+		}
+	}
+
 	if viper.GetBool("tenant") {
 		tid := ctx.GetString("tenant")
 		if tid != "" {
