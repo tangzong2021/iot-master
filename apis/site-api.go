@@ -4,14 +4,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/pkg/api"
 	"github.com/god-jason/iot-master/pkg/db"
-	"github.com/god-jason/iot-master/pkg/log"
 	"github.com/god-jason/iot-master/pkg/table"
 )
 
 func init() {
 	//行级过滤：非管理员在 device 表只查看被授权（绑定）的站点
 	table.RowFilter = func(ctx *gin.Context, name string) map[string]any {
-		log.Info("RowFilter called: table=", name, " admin=", ctx.GetBool("admin"), " uid=", ctx.GetString("user"))
 		if name != "device" {
 			return nil
 		}
@@ -23,17 +21,12 @@ func init() {
 			return nil
 		}
 		ids := GetUserSiteIds(uid)
-		log.Info("RowFilter ids for ", uid, ": ", ids)
 		if len(ids) == 0 {
 			//未绑定任何站点：返回不可能匹配的值，保证结果为空
-			return map[string]any{"id": "__no_site__"}
+			return map[string]any{"id": map[string]any{"$in": []string{"__no_site__"}}}
 		}
-		//数组filter是AND语义，改用$or实现 id=a OR id=b
-		orCondition := map[string]any{}
-		for _, sid := range ids {
-			orCondition[sid] = sid
-		}
-		return map[string]any{"$or": map[string]any{"id": orCondition}}
+		//同字段多值用 $in：id IN (绑定的站点)
+		return map[string]any{"id": map[string]any{"$in": ids}}
 	}
 
 	//当前用户被授权的站点列表（供前端展示）

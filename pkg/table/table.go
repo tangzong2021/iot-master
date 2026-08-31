@@ -263,6 +263,18 @@ func (t *Table) condWhere(filter map[string]any, hasJoin bool) (conds []builder.
 			}
 			for op, opVal := range val {
 				switch op {
+				case "$in", "in":
+					//同字段多值：{"id": {"$in": ["a","b"]}} => id IN (a,b)
+					switch vs := opVal.(type) {
+					case []string:
+						if len(vs) > 0 {
+							conds = append(conds, builder.In(fn, anySlice(vs)))
+						}
+					case []any:
+						if len(vs) > 0 {
+							conds = append(conds, builder.In(fn, vs...))
+						}
+					}
 				case "$gt", ">":
 					if str, ok := opVal.(string); ok && str != "" {
 						v, err := column.Cast(str)
@@ -314,6 +326,15 @@ func (t *Table) condWhere(filter map[string]any, hasJoin bool) (conds []builder.
 		}
 	}
 	return
+}
+
+// anySlice 字符串切片转 any 切片（builder.In 需要）
+func anySlice(ss []string) []any {
+	out := make([]any, len(ss))
+	for i, v := range ss {
+		out[i] = v
+	}
+	return out
 }
 
 // Schema 构建 xorm 表结构
