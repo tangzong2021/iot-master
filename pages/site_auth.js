@@ -67,7 +67,9 @@ return {
         el = document.createElement('div')
         el.id = 'site-auth-box'
         el.style.padding = '8px 16px'
-        const host = document.querySelector('app-detail') || document.body
+        //兼容两种宿主：弹窗内（追加到最上层的弹窗body）/ 独立页面（追加到app-detail）
+        const bodies = document.querySelectorAll('.ant-modal-body')
+        const host = bodies.length ? bodies[bodies.length - 1] : (document.querySelector('app-detail') || document.body)
         host.appendChild(el)
       }
 
