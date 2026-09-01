@@ -20,6 +20,15 @@ spec:
         app: emqx
         cloud.sealos.io/deploy-on-sealos: emqx
     spec:
+      initContainers:
+        - name: fix-data-perm
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 1000:1000 /opt/emqx/data"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/emqx/data
+          securityContext:
+            runAsUser: 0
       containers:
         - name: emqx
           image: emqx/emqx:4.4.18
@@ -28,6 +37,10 @@ spec:
             - containerPort: 8083   # MQTT over WebSocket (设备公网wss接入)
             - containerPort: 18083  # Dashboard 管理界面
           env:
+            - name: EMQX_NAME
+              value: emqx
+            - name: EMQX_HOST
+              value: 127.0.0.1
             - name: EMQX_ALLOW_ANONYMOUS
               value: "true"
           resources:
@@ -37,11 +50,22 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/emqx/data
           readinessProbe:
             tcpSocket:
               port: 1883
             initialDelaySeconds: 15
             periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
