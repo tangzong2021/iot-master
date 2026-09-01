@@ -53,6 +53,16 @@ type MqttDisconnect struct {
 	ProtoVer       int    `json:"proto_ver"`
 }
 
+// MqttConnect EMQX客户端连接事件载荷：MQTT心跳保活期间连接即为在线凭证
+type MqttConnect struct {
+	ClientId    string `json:"clientid"`
+	Username    string `json:"username"`
+	Ipaddress   string `json:"ipaddress"`
+	Keepalive   int    `json:"keepalive"`
+	ProtoName   string `json:"proto_name"`
+	ConnectedAt int64  `json:"connected_at"`
+}
+
 func mqttSubscribeDevice() {
 
 	//设备注册
@@ -306,6 +316,12 @@ func mqttSubscribeDevice() {
 		if d != nil {
 			mqtt.Publish("device/"+msg.ClientId+"/offline", nil)
 		}
+	})
+
+	//EMQX连接事件：设备连上broker即视为在线（此后由MQTT心跳保活，断开走上面的下线事件）
+	mqtt.SubscribeStruct[MqttConnect]("$events/client_connected", func(topic string, msg *MqttConnect) {
+		//平台内部客户端等非设备clientid在 online 处理器中因设备不存在而被忽略
+		mqtt.Publish("device/"+msg.ClientId+"/online", nil)
 	})
 
 	mqtt.Subscribe("device/+/log", func(topic string, payload []byte) {

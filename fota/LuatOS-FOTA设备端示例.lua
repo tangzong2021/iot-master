@@ -18,7 +18,8 @@ PROJECT = "fotademo"
 VERSION = "1122.001.001"
 
 -- ===== 平台配置（按实际环境修改）=====
-PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site"
+PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site" -- 平台域名(HTTP接口)
+MQTT_HOST   = "emqx-jhykguet.sealosgzg.site"          -- EMQX公网入口(wss心跳在线)
 -- 项目KEY = 平台上的产品ID（对应合宙模式的PRODUCT_KEY）:
 --   ① register自动注册时设备自动归属该产品  ② 设备未注册时HTTP自检按产品拉固件兜底
 PROJECT_KEY = "1234"
@@ -141,7 +142,7 @@ local function mqtt_task()
         log.info("device", "设备ID取IMEI", DEVICE_ID)
     end
     -- wss://前缀由LuatOS底层识别为WebSocket模式(第5个参数是isipv6，不是websocket!)
-    mqttc = mqtt.create(nil, "wss://" .. PLATFORM_HOST .. "/mqtt", 443, true)
+    mqttc = mqtt.create(nil, "wss://" .. MQTT_HOST .. "/mqtt", 443, true)
     mqttc:auth(DEVICE_ID) -- WebSocket通道匿名，用户名填设备ID即可
     mqttc:autoreconn(true, 10000)
     mqttc:on(mqtt_cb)

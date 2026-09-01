@@ -1,0 +1,127 @@
+# EMQX 4.4 单节点部署（Sealos ns-y5hvuko4）
+# 选 4.4 的原因: 平台 device-mqtt.go 已按 EMQX4 的 $events/client_disconnected 协议订阅，零改动兼容
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: emqx
+  namespace: ns-y5hvuko4
+  labels:
+    app: emqx
+    cloud.sealos.io/deploy-on-sealos: emqx
+spec:
+  serviceName: emqx
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emqx
+  template:
+    metadata:
+      labels:
+        app: emqx
+        cloud.sealos.io/deploy-on-sealos: emqx
+    spec:
+      containers:
+        - name: emqx
+          image: emqx/emqx:4.4.18
+          ports:
+            - containerPort: 1883   # MQTT TCP (平台内部接入)
+            - containerPort: 8083   # MQTT over WebSocket (设备公网wss接入)
+            - containerPort: 18083  # Dashboard 管理界面
+          env:
+            - name: EMQX_ALLOW_ANONYMOUS
+              value: "true"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: 1883
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx
+  namespace: ns-y5hvuko4
+  labels:
+    app: emqx
+spec:
+  selector:
+    app: emqx
+  ports:
+    - name: mqtt
+      port: 1883
+      targetPort: 1883
+    - name: ws
+      port: 8083
+      targetPort: 8083
+    - name: dashboard
+      port: 18083
+      targetPort: 18083
+---
+# 设备 WebSocket 公网入口: wss://emqx-jhykguet.sealosgzg.site/mqtt
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: emqx-ws
+  namespace: ns-y5hvuko4
+  labels:
+    app: emqx
+    cloud.sealos.io/deploy-on-sealos: emqx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  rules:
+    - host: emqx-jhykguet.sealosgzg.site
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: emqx
+                port:
+                  number: 8083
+  tls:
+    - hosts:
+        - emqx-jhykguet.sealosgzg.site
+      secretName: wildcard-cert
+---
+# EMQX Dashboard 公网入口: https://emqx-dash-jhykguet.sealosgzg.site (admin/public 首次登录)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: emqx-dashboard
+  namespace: ns-y5hvuko4
+  labels:
+    app: emqx
+    cloud.sealos.io/deploy-on-sealos: emqx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+    - host: emqx-dash-jhykguet.sealosgzg.site
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: emqx
+                port:
+                  number: 18083
+  tls:
+    - hosts:
+        - emqx-dash-jhykguet.sealosgzg.site
+      secretName: wildcard-cert

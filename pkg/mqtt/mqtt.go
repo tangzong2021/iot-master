@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -57,22 +58,23 @@ func Startup() error {
 	//使用虚拟连接，直通broker，免进程间通讯
 	opts.SetCustomOpenConnectionFn(CustomConnectionFunc)
 
-	//加上订阅处理(上速问题)
-	//opts.SetOnConnectHandler(func(client paho.client) {
-	//	//for topic, _ := range subs {
-	//	//	client.Subscribe(topic, 0, func(client paho.client, message paho.Message) {
-	//	//
-	//	//		go func() {
-	//	//			//依次处理回调
-	//	//			if cbs, ok := subs[topic]; ok {
-	//	//				for _, cb := range cbs {
-	//	//					cb(message.Topic(), message.Payload())
-	//	//				}
-	//	//			}
-	//	//		}()
-	//	//	})
-	//	//}
-	//})
+	//连接(含自动重连)建立后补订全部过滤器：
+	//外接broker重启/会话丢失后，paho的ResumeSubs不总能生效，此处兜底重订
+	opts.SetOnConnectHandler(func(c paho.Client) {
+		subsMu.RLock()
+		filters := make([]string, 0, len(subs))
+		for filter := range subs {
+			filters = append(filters, filter)
+		}
+		subsMu.RUnlock()
+		for _, filter := range filters {
+			if t := c.Subscribe(filter, 0, makeHandler(filter)); t.Wait() && t.Error() != nil {
+				log.Error("resubscribe ", filter, " fail: ", t.Error())
+			} else {
+				log.Info("resubscribe ", filter)
+			}
+		}
+	})
 
 	client = paho.NewClient(opts)
 	token := client.Connect()
@@ -112,20 +114,15 @@ func PublishEx(topics []string, payload any) {
 
 type callback func(topic string, payload []byte)
 
+var subsMu sync.RWMutex
 var subs = map[string][]callback{}
 
-func Subscribe(filter string, cb func(topic string, payload []byte)) {
-
-	//重复订阅，直接入列
-	if callbacks, ok := subs[filter]; ok {
-		subs[filter] = append(callbacks, cb)
-		return
-	}
-	subs[filter] = []callback{cb}
-
-	//初次订阅
-	client.Subscribe(filter, 0, func(client paho.Client, message paho.Message) {
+// makeHandler 生成某过滤器的消息分发器(重连补订后复用)
+func makeHandler(filter string) func(client paho.Client, message paho.Message) {
+	return func(client paho.Client, message paho.Message) {
+		subsMu.RLock()
 		cbs := subs[filter]
+		subsMu.RUnlock()
 		//回调
 		for _, c := range cbs {
 			if pool.Pool == nil {
@@ -141,7 +138,23 @@ func Subscribe(filter string, cb func(topic string, payload []byte)) {
 				go c(message.Topic(), message.Payload())
 			}
 		}
-	})
+	}
+}
+
+func Subscribe(filter string, cb func(topic string, payload []byte)) {
+
+	subsMu.Lock()
+	//重复订阅，直接入列
+	if callbacks, ok := subs[filter]; ok {
+		subs[filter] = append(callbacks, cb)
+		subsMu.Unlock()
+		return
+	}
+	subs[filter] = []callback{cb}
+	subsMu.Unlock()
+
+	//初次订阅
+	client.Subscribe(filter, 0, makeHandler(filter))
 }
 
 func SubscribeStruct[T any](filter string, cb func(topic string, data *T)) {
