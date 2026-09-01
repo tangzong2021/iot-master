@@ -39,6 +39,24 @@ return {
       }
     },
     {
+      icon: 'profile',
+      type: 'button',
+      label: '获取物模型',
+      confirm: '向该设备下发获取物模型指令？设备上报后将保存为所属产品的物模型（覆盖现有模型），请确认该设备脚本正确',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.request.post('device/' + data.id + '/model/get', {}).subscribe(res => {
+            if (res.error) {
+              this.notification.error('获取失败', res.error)
+              return
+            }
+            this.notification.success('提示', '指令已下发，设备上报后将自动保存为所属产品的物模型')
+          })
+        }
+      }
+    },
+    {
       icon: 'delete',
       type: 'button',
       label: '删除',

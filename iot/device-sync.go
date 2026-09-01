@@ -35,6 +35,8 @@ func deviceSettingSync(id string, sts map[string]int) (has bool, err error) {
 }
 
 func modelSync(id string, sts map[string]int) (has bool, err error) {
+	//注意: 设备物模型的获取已改为平台手动触发(设备详情"获取物模型"按钮),
+	//不再在注册时自动索要, 防止设备刷错脚本后错误模型覆盖产品模型
 	for pid, ver := range sts {
 		var setting ProductSetting
 		has, err := db.Engine().ID(schemas.PK{pid, "model"}).Get(&setting)
@@ -43,17 +45,8 @@ func modelSync(id string, sts map[string]int) (has bool, err error) {
 				//平台模型比设备新 → 推送给设备
 				topic := fmt.Sprintf("device/%s/database/model/insert", id)
 				mqtt.Publish(topic, &setting)
-				has = true
-			} else if ver > setting.Version {
-				//设备模型比平台新 → 指令设备上报完整模型
-				mqtt.Publish(fmt.Sprintf("device/%s/model/get", id), nil)
-				has = true
 			}
-			//相等无需同步
-		} else {
-			//平台没有该产品的模型 → 指令设备上报(设备物模型注册)
-			mqtt.Publish(fmt.Sprintf("device/%s/model/get", id), nil)
-			has = true
+			//其余情况(设备版本更新/平台无模型)由管理员在设备详情手动触发获取
 		}
 	}
 	return

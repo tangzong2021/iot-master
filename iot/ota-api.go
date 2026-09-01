@@ -28,6 +28,8 @@ func init() {
 	api.Register("POST", "device/:id/upgrade", deviceUpgrade)
 	//创建固件版本（名称留空时自动从升级包文件名提取版本号）
 	api.Register("POST", "version/create", versionCreate)
+	//手动获取设备物模型（下发指令让设备上报完整模型，自动保存为所属产品模型）
+	api.Register("POST", "device/:id/model/get", deviceModelGet)
 }
 
 // checkDeviceManage 校验设备管理权限（管理员放行）
@@ -272,9 +274,28 @@ func serveFirmware(ctx *gin.Context, url string) error {
 	return err
 }
 
-// deviceUpgrade 单设备下发升级 POST device/:id/upgrade {version_id?}
-func deviceUpgrade(ctx *gin.Context) {
+// deviceModelGet 手动获取设备物模型: 下发指令让设备上报完整模型,
+// 设备上报后经 model/report 处理器自动保存为所属产品的物模型(管理员手动触发, 防误操作)
+func deviceModelGet(ctx *gin.Context) {
 	if !checkDeviceManage(ctx) {
+		api.Fail(ctx, "无权限：需要设备管理权限")
+		return
+	}
+	id := ctx.Param("id")
+	d := devices.Load(id)
+	if d == nil {
+		var err error
+		if d, err = LoadDevice(id); err != nil {
+			api.Fail(ctx, "设备不存在")
+			return
+		}
+	}
+	mqtt.Publish("device/"+id+"/model/get", nil)
+	api.OK(ctx, "指令已下发，设备上报后将自动保存为所属产品的物模型")
+}
+
+// deviceUpgrade 单设备下发升级 POST device/:id/upgrade {version_id?}
+func deviceUpgrade(ctx *gin.Context) {	if !checkDeviceManage(ctx) {
 		api.Fail(ctx, "无权限：需要设备管理权限")
 		return
 	}
