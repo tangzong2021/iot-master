@@ -187,6 +187,13 @@ func mqttSubscribeDevice() {
 			log.Error(err)
 			return
 		}
+		//xorm的version标签会在插入时强制置1, 这里把设备上报的模型版本写回,
+		//否则平台版本永远小于设备版本, 每次连接都会重复索要模型
+		if _, err := db.Engine().Exec("update product_setting set version=? where id=? and name=?",
+			msg.Version, msg.ProductId, "model"); err != nil {
+			log.Error(err)
+			return
+		}
 		log.Info("model registered: ", msg.ProductId, " v", msg.Version, " by ", id)
 	})
 
