@@ -24,7 +24,7 @@
 ## 二、平台侧操作
 
 1. **上传固件**：产品库 → 产品详情 → 固件版本 tab → 创建：
-   - 名称 = 版本号（如 `1.0.1`），**必须与设备端 `VERSION` 一致**（设备请求接口上报的 version 与它相同时，平台返回304=无需升级）
+   - 名称 = 版本号（如 `1122.001.001`），**必须与设备端 `VERSION` 一致**（设备请求接口上报的 version 与它相同时，平台返回304=无需升级）
    - 固件 = 上传 Luatools 生成的升级包文件（`.bin` / `.dfota.bin`）
 2. **下发升级**：固件版本列表 → 行操作 🡅（下发升级）→ 勾选在线设备 → 提交
    - 也可在 设备详情 右上角点"升级"直接对单台设备下发最新固件
@@ -86,12 +86,13 @@ GET https://{平台域名}/api/site/firmware_upgrade?imei={设备ID}&version={�
 返回约定（与合宙 libfota2 完全兼容）：
 - **HTTP 200**：body 即固件文件内容（平台上传的文件直接读，外部URL则代理转发）
 - **HTTP 304/404**：无需升级或无可用固件，libfota2 视为"已是最新"
+- **升级记录闭环**：HTTP 拉取成功也会记一条升级记录（同设备同版本去重）；设备升级重启后 register 上报新版本，该记录自动变"成功"——自检通道没有 msg_id，无需也无法回传
 
 快速验证：
 
 ```bash
 # 有新版本：返回固件内容
-curl "https://xxx/api/site/firmware_upgrade?imei=pc-test-002&version=1.0.0" -o f.bin
+curl "https://xxx/api/site/firmware_upgrade?imei=pc-test-002&version=1122.001.000" -o f.bin
 # 已是最新：返回304
 curl -v "https://xxx/api/site/firmware_upgrade?imei=pc-test-002&version=9.9.9"
 ```
@@ -101,8 +102,8 @@ curl -v "https://xxx/api/site/firmware_upgrade?imei=pc-test-002&version=9.9.9"
 1. MQTTX 连接平台（wss://域名/mqtt，匿名），订阅 `device/pc-test-002/#`
 2. 平台固件版本页点"下发升级"→ MQTTX 收到 `device/pc-test-002/upgrade` 指令（含 url、version、msg_id）
 3. 模拟下载成功：向 `device/pc-test-002/upgrade/response` 发布
-   `{"msg_id":"复制收到的msg_id","status":"success","version":"1.0.1"}`
-4. 平台"升级记录"状态变"成功"；再发 `device/pc-test-002/register` `{"id":"pc-test-002","firmware":"1.0.1"}`，设备详情"固件版本"即更新
+   `{"msg_id":"复制收到的msg_id","status":"success","version":"1122.001.001"}`
+4. 平台"升级记录"状态变"成功"；再发 `device/pc-test-002/register` `{"id":"pc-test-002","firmware":"1122.001.001"}`，设备详情"固件版本"即更新
 
 ## 六、升级记录表结构
 

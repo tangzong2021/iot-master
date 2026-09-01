@@ -109,10 +109,21 @@ return {
         }
       }
     },
-    { key: 'name', label: '名称', sortable: true, type: 'text' },
-    { key: 'description', label: '说明', type: 'text' },
-    { key: 'url', label: '固件', type: 'text' },
-    { key: 'disabled', label: '禁用', type: 'boolean' }
+    { key: 'name', label: '名称(版本号)', sortable: true, type: 'text' },
+    { key: 'description', label: '固件标识', type: 'text' },
+    {
+      key: 'url',
+      label: '固件(点击下载)',
+      type: 'text',
+      action: {
+        type: 'script',
+        script(data) {
+          if (data.url) window.open(data.url, '_blank')
+        }
+      }
+    },
+    { key: 'disabled', label: '禁用', type: 'boolean' },
+    { key: 'created', label: '创建时间', type: 'datetime', sortable: true, sort: -1 }
   ],
   search_api: 'table/version/search',
   // 页面挂载时执行

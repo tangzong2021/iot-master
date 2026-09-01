@@ -26,6 +26,8 @@ func init() {
 	//创建升级任务（支持批量设备）
 	api.Register("POST", "upgrade/create", upgradeCreate)
 	api.Register("POST", "device/:id/upgrade", deviceUpgrade)
+	//创建固件版本（名称留空时自动从升级包文件名提取版本号）
+	api.Register("POST", "version/create", versionCreate)
 }
 
 // checkDeviceManage 校验设备管理权限（管理员放行）
@@ -101,6 +103,7 @@ func firmwareUpgrade(ctx *gin.Context) {
 
 // latestVersion 查询产品最新启用固件版本（version.id 为 xid，按序即时间序）
 // 注意：API创建的记录 disabled 可能为 NULL，SQL过滤匹配不上，取回后在Go侧判断
+// 名称(版本号)为空的记录视为无效跳过：空名称永远无法与设备版本匹配，会造成设备反复下载
 func latestVersion(productId string) (map[string]any, error) {
 	tab, err := table.Get("version")
 	if err != nil {
@@ -118,9 +121,108 @@ func latestVersion(productId string) (map[string]any, error) {
 		if cast.ToBool(row["disabled"]) {
 			continue
 		}
+		if name, _ := row["name"].(string); strings.TrimSpace(name) == "" {
+			continue
+		}
 		return row, nil
 	}
 	return nil, errors.New("该产品没有可用固件版本")
+}
+
+// versionCreate 创建固件版本，名称(版本号)留空时自动从升级包文件名提取。
+// Luatools生成的升级包文件名格式: 项目名_版本号_底层标识.bin，如 fotademo_1122.001.001_LuatOS-SoC_EC618.bin
+func versionCreate(ctx *gin.Context) {
+	if !checkDeviceManage(ctx) {
+		api.Fail(ctx, "无权限：需要设备管理权限")
+		return
+	}
+	var doc map[string]any
+	if err := ctx.ShouldBindJSON(&doc); err != nil {
+		api.Error(ctx, err)
+		return
+	}
+	if name, _ := doc["name"].(string); strings.TrimSpace(name) == "" {
+		url, _ := doc["url"].(string)
+		if v := versionFromFilename(url); v != "" {
+			doc["name"] = v
+		}
+	}
+	//说明留空时自动从文件名提取固件标识，如 fotademo_LuatOS-SoC_EC618
+	if desc, _ := doc["description"].(string); strings.TrimSpace(desc) == "" {
+		url, _ := doc["url"].(string)
+		if d := describeFromFilename(url); d != "" {
+			doc["description"] = d
+		}
+	}
+	if id, _ := doc["id"].(string); id == "" {
+		doc["id"] = xid.New().String()
+	}
+	tab, err := table.Get("version")
+	if err != nil {
+		api.Error(ctx, err)
+		return
+	}
+	if _, err := tab.Insert(doc); err != nil {
+		api.Error(ctx, err)
+		return
+	}
+	api.OK(ctx, doc["id"])
+}
+
+// versionFromFilename 从升级包文件名(或URL)中提取版本号：取第一个形如 1122.001.001 的段
+func versionFromFilename(url string) string {
+	base := url
+	if i := strings.LastIndex(url, "/"); i >= 0 {
+		base = url[i+1:]
+	}
+	if i := strings.LastIndex(base, "."); i > 0 {
+		base = base[:i]
+	}
+	for _, part := range strings.Split(base, "_") {
+		if isVersionLike(part) {
+			return part
+		}
+	}
+	return ""
+}
+
+// describeFromFilename 从升级包文件名提取固件标识(去掉版本号段的剩余部分)：
+// fotademo_1122.001.001_LuatOS-SoC_EC618.bin → fotademo_LuatOS-SoC_EC618
+func describeFromFilename(url string) string {
+	base := url
+	if i := strings.LastIndex(url, "/"); i >= 0 {
+		base = url[i+1:]
+	}
+	if i := strings.LastIndex(base, "."); i > 0 {
+		base = base[:i]
+	}
+	var parts []string
+	for _, part := range strings.Split(base, "_") {
+		if part == "" || isVersionLike(part) {
+			continue
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, "_")
+}
+
+// isVersionLike 判断是否为版本号段：2段以上、每段非空纯数字，如 1122.001.001
+func isVersionLike(s string) bool {
+	segs := strings.Split(s, ".")
+	if len(segs) < 2 {
+		return false
+	}
+	for _, seg := range segs {
+		if seg == "" {
+			return false
+		}
+		for _, r := range seg {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // serveFirmware 输出固件文件：平台上传的本地文件直接读取，外部地址代理转发

@@ -5,7 +5,7 @@ return {
   template: 'edit',
   fields: [
     { key: 'id', label: 'ID', type: 'text', placeholder: '默认随机ID' },
-    { key: 'name', label: '名称', type: 'text' },
+    { key: 'name', label: '名称(版本号)', type: 'text', placeholder: '留空则自动从升级包文件名提取，格式如1122.001.001' },
     { key: 'description', label: '说明', type: 'text' },
     { key: 'url', label: '固件', type: 'file', upload: '/api/upload' },
     {
@@ -24,7 +24,7 @@ return {
     },
     { key: 'disabled', label: '禁用', type: 'switch' }
   ],
-  submit_api: 'table/version/create',
+  submit_api: 'version/create',
   // 页面挂载时执行
   mount() {
     this.data.product_id = this.params.product_id

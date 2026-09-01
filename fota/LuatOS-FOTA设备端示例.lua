@@ -13,11 +13,15 @@
 -- 注意：MQTT走wss(WebSocket)需要2025.09.23之后的底层core；HTTP自检通道不受限
 -- =====================================================================
 PROJECT = "fotademo"
--- 平台按VERSION字符串精确匹配固件版本名：相同则304=已是最新；版本号一路递增(不支持降级)
-VERSION = "1.0.0"
+-- 平台按VERSION字符串精确匹配固件版本名：相同则304=已是最新
+-- 采用合宙格式 1122.001.001：前两段对齐合宙约定, 最后一段为脚本版本, 递增最后一段发新版本
+VERSION = "1122.001.001"
 
 -- ===== 平台配置（按实际环境修改）=====
 PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site"
+-- 项目KEY = 平台上的产品ID（对应合宙模式的PRODUCT_KEY）:
+--   ① register自动注册时设备自动归属该产品  ② 设备未注册时HTTP自检按产品拉固件兜底
+PROJECT_KEY = "1234"
 USE_IMEI  = true  -- true=联网后取模组真实IMEI作为设备ID(平台需以IMEI为ID建设备)
 DEVICE_ID = ""    -- USE_IMEI=false时填固定设备ID，如"pc-test-002"
 FOTA_CHECK_INTERVAL = 4 * 3600000 -- 定时自检升级周期(毫秒)，联调可改2*60*1000
@@ -88,7 +92,8 @@ end
 local function build_opts()
     return {
         url = "###https://" .. PLATFORM_HOST ..
-              "/api/site/firmware_upgrade?imei=" .. DEVICE_ID .. "&version=" .. VERSION,
+              "/api/site/firmware_upgrade?imei=" .. DEVICE_ID ..
+              "&project_key=" .. PROJECT_KEY .. "&version=" .. VERSION,
         imei = DEVICE_ID,
     }
 end
@@ -107,8 +112,9 @@ local function mqtt_cb(mqtt_client, event, data, payload)
     if event == "conack" then
         mqtt_client:subscribe(topic("upgrade"))
         -- 注册上报：平台自动记录当前固件版本(设备详情"固件版本")
+        -- product_id=项目KEY: 设备不存在时平台自动注册并归属该产品
         mqtt_client:publish(topic("register"),
-            json.encode({ id = DEVICE_ID, firmware = VERSION }), 1)
+            json.encode({ id = DEVICE_ID, firmware = VERSION, product_id = PROJECT_KEY }), 1)
         devlog("设备上线,脚本版本" .. VERSION)
     elseif event == "recv" then
         log.info("mqtt", "recv", data)

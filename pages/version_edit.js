@@ -4,7 +4,7 @@ return {
   icon: '/emoji/version.svg',
   template: 'edit',
   fields: [
-    { key: 'name', label: '名称', type: 'text' },
+    { key: 'name', label: '名称(版本号)', type: 'text', required: true, placeholder: '合宙格式1122.001.001，最后一段为脚本版本递增，须与设备VERSION一致' },
     { key: 'description', label: '说明', type: 'text' },
     { key: 'url', label: '固件', type: 'file', upload: '/api/upload' },
     {
