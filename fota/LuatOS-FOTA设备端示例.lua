@@ -15,7 +15,7 @@
 PROJECT = "fotademo"
 -- 平台按VERSION字符串精确匹配固件版本名：相同则304=已是最新
 -- 采用合宙格式 1122.001.001：前两段对齐合宙约定, 最后一段为脚本版本, 递增最后一段发新版本
-VERSION = "1122.001.001"
+VERSION = "1122.1122.004"
 
 -- ===== 平台配置（按实际环境修改）=====
 PLATFORM_HOST = "iot-master-jhykguet.sealosgzg.site" -- 平台域名(HTTP接口)

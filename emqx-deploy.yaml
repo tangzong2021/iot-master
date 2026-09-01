@@ -41,6 +41,8 @@ spec:
               value: emqx
             - name: EMQX_HOST
               value: 127.0.0.1
+            - name: TZ
+              value: UTC-8
             - name: EMQX_ALLOW_ANONYMOUS
               value: "true"
           resources:

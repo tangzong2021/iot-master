@@ -11,6 +11,7 @@ import (
 	"github.com/god-jason/iot-master/pkg/mqtt"
 	"github.com/god-jason/iot-master/pkg/table"
 	"github.com/mmcloughlin/geohash"
+	"xorm.io/xorm/schemas"
 )
 
 type Sync struct {
@@ -61,6 +62,13 @@ type MqttConnect struct {
 	Keepalive   int    `json:"keepalive"`
 	ProtoName   string `json:"proto_name"`
 	ConnectedAt int64  `json:"connected_at"`
+}
+
+// ModelReport 设备上报的完整物模型(注册/更新产品模型)
+type ModelReport struct {
+	ProductId string           `json:"product_id"`
+	Version   int              `json:"version"`
+	Content   []map[string]any `json:"content"`
 }
 
 func mqttSubscribeDevice() {
@@ -149,6 +157,37 @@ func mqttSubscribeDevice() {
 				mqtt.Publish("device/"+d.Id+"/action", &ActionRequest{Action: "reboot"})
 			})
 		}
+	})
+
+	//物模型上报: 平台缺失/落后时曾下发 model/get 指令, 设备上报完整模型后存入产品设置
+	//仅当上报设备归属该产品时才保存, 防止任意设备覆盖产品模型
+	mqtt.SubscribeStruct[ModelReport]("device/+/model/report", func(topic string, msg *ModelReport) {
+		id := strings.Split(topic, "/")[1]
+		if msg.ProductId == "" || msg.Version <= 0 || len(msg.Content) == 0 {
+			log.Error("model report invalid: ", id)
+			return
+		}
+		var dev Device
+		if has, _ := db.Engine().ID(id).Get(&dev); !has || dev.ProductId != msg.ProductId {
+			log.Error("model report rejected, device not in product: ", id, " ", msg.ProductId)
+			return
+		}
+		var setting ProductSetting
+		setting.Id = msg.ProductId
+		setting.Name = "model"
+		setting.Version = msg.Version
+		setting.Content = msg.Content
+		if has, _ := db.Engine().ID(schemas.PK{msg.ProductId, "model"}).Get(&ProductSetting{}); has {
+			if _, err := db.Engine().ID(schemas.PK{msg.ProductId, "model"}).Delete(&ProductSetting{}); err != nil {
+				log.Error(err)
+				return
+			}
+		}
+		if _, err := db.Engine().Insert(&setting); err != nil {
+			log.Error(err)
+			return
+		}
+		log.Info("model registered: ", msg.ProductId, " v", msg.Version, " by ", id)
 	})
 
 	mqtt.Subscribe("device/+/values", func(topic string, payload []byte) {
