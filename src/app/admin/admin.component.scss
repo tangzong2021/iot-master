@@ -306,3 +306,71 @@ nz-content {
   overflow-x: hidden;
   overflow-y: auto;
 }
+
+// ============================================================
+// 手机端适配（≤768px，与 nz-sider 的 nzBreakpoint="md" 同区间）
+// 侧栏抽屉化：展开时浮层盖在内容上、折叠时整体滑出，内容区始终全宽；
+// 顶栏压缩，隐藏前进/后退（手机上无用）
+// ============================================================
+@media (max-width: 768px) {
+  .app-layout {
+    position: relative;
+    // 100dvh 跟随手机可视区，避免地址栏收起/展开导致底部被裁
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  nz-header {
+    height: 52px;
+    flex: 0 0 52px;
+    line-height: 52px;
+  }
+
+  .app-header {
+    height: 52px;
+    font-size: 18px;
+  }
+
+  .header-trigger {
+    padding: 0 12px;
+  }
+
+  .header-icon {
+    display: none;
+  }
+
+  .header-user {
+    padding: 0 10px;
+  }
+
+  .user-name {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  // 侧栏抽屉化的定位/滑出规则放在全局 mobile.scss：
+  // 组件作用域下 collapsed 覆盖规则在部分浏览器不生效（Angular 21 emulated encapsulation 怪癖）
+
+  // 小屏关闭纯装饰性的发光动画，省电省性能
+  .sidebar-glow {
+    display: none;
+  }
+
+  .sidebar-logo {
+    height: 52px;
+    line-height: 52px;
+    padding-left: 16px;
+  }
+
+  .sidebar-logo h1 {
+    font-size: 14px;
+    margin-left: 10px;
+  }
+
+  .inner-content {
+    padding: 10px;
+  }
+}

@@ -242,7 +242,7 @@
 
 // 登录卡片
 .login-card {
-  width: 420px;
+  width: min(420px, calc(100vw - 32px));
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 212, 255, 0.2);
@@ -351,4 +351,48 @@
 .button-text {
   position: relative;
   z-index: 1;
+}
+
+// ============================================================
+// 手机端适配：缩小欢迎区、关闭粒子动画，避免小屏溢出与性能负担
+// ============================================================
+@media (max-width: 768px) {
+  :host {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .login {
+    padding: 40px 0;
+    overflow-y: auto;
+  }
+
+  .particle {
+    display: none;
+  }
+
+  .login-container {
+    gap: 24px;
+    padding: 0 16px;
+  }
+
+  .logo-container {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 12px;
+  }
+
+  .welcome-title {
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
+
+  .welcome-subtitle {
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .login-card ::ng-deep .ant-card-body {
+    padding: 20px;
+  }
 }

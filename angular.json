@@ -65,7 +65,8 @@
             },
             "styles": [
               "src/styles.scss",
-              "src/theme.less"
+              "src/theme.less",
+              "src/mobile.scss"
             ],
             "scripts": []
           },

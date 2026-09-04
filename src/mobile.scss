@@ -1,0 +1,95 @@
+/* ============================================================
+   手机端全局适配（≤768px）——轻量方案：纯样式覆盖，不改模板逻辑
+   加载顺序：styles.scss → theme.less（ng-zorro）→ 本文件，保证覆盖优先级
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* ---------- 布局壳：侧栏抽屉化 ----------
+     展开时浮层盖在内容上（内容区保持全宽），折叠时整体滑出屏幕；
+     必须用 !important：admin 组件作用域样式带 [_ngcontent] 属性选择器，
+     specificity 比全局规则高 10 分 */
+  nz-sider.menu-sidebar.ant-layout-sider {
+    position: absolute !important;
+    /* 从顶栏下沿开始，保证顶栏折叠按钮不被浮层盖住、随时可点 */
+    top: 52px;
+    bottom: 0;
+    left: 0;
+    z-index: 100 !important;
+    min-height: 0 !important;
+    height: auto;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.45);
+  }
+
+  nz-sider.menu-sidebar.ant-layout-sider.ant-layout-sider-collapsed {
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+  }
+
+  /* ---------- 弹窗：编辑/详情弹窗接近全屏，正文限高滚动 ---------- */
+  .ant-modal {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px);
+    top: 8px;
+    margin: 0 auto 8px;
+  }
+
+  .ant-modal .ant-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+  }
+
+  .ant-modal .ant-modal-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---------- 表单：smart-editor 左置标签改为标签在上、控件在下 ---------- */
+  .ant-form-item {
+    flex-wrap: wrap;
+  }
+
+  .ant-form-item .ant-form-item-label {
+    flex: 0 0 100%;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .ant-form-item .ant-form-item-control {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  /* ---------- 分页：允许换行，总数/跳页/条数不再挤爆一行 ---------- */
+  .ant-pagination {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  /* ---------- 工具栏：搜索/筛选控件随行换行且不撑破容器 ---------- */
+  .toolbar {
+    max-width: 100%;
+  }
+
+  .toolbar > span {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .toolbar .ant-picker,
+  .toolbar .ant-select,
+  .toolbar .ant-input,
+  .toolbar .ant-input-number {
+    max-width: 100%;
+  }
+
+  /* ---------- 输入字号提到 16px，避免 iOS 聚焦输入框时自动放大页面 ---------- */
+  .ant-input,
+  .ant-select-selection-search-input,
+  .ant-picker-input > input {
+    font-size: 16px;
+  }
+}

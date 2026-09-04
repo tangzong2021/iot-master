@@ -37,3 +37,6 @@ go.work.sum
 /example
 /expages
 /examples
+
+# local dev-only proxy config (points at personal platform instance)
+/proxy.conf.local.json
