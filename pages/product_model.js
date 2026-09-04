@@ -303,7 +303,7 @@ return {
   load_api: 'product/:id/model',
   submit_api: 'product/:id/model',
   submit_success(data) {
-    this.navigate('/page/product-detail?id=' + this.params.id)
+    this.navigate('/page/product_detail?id=' + this.params.id)
   },
   // 页面挂载时执行
   mount() {

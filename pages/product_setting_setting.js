@@ -80,6 +80,6 @@ return {
   load_api: 'product/:id/setting/setting',
   submit_api: 'product/:id/setting/setting',
   submit_success(data) {
-    this.navigate('/page/product-detail?id=' + this.params.id)
+    this.navigate('/page/product_detail?id=' + this.params.id)
   }
 }

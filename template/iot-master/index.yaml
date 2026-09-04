@@ -267,7 +267,7 @@ metadata:
     app: ${{ defaults.app_name }}
     cloud.sealos.io/app-deploy-manager: ${{ defaults.app_name }}
   annotations:
-    originImageName: 'ghcr.io/tangzong2021/iot-master:v1.0.28'
+    originImageName: 'ghcr.io/tangzong2021/iot-master:v1.0.29'
     deploy.cloud.sealos.io/minReplicas: '1'
     deploy.cloud.sealos.io/maxReplicas: '1'
 spec:
@@ -292,7 +292,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: bootstrap
-          image: ghcr.io/tangzong2021/iot-master:v1.0.28
+          image: ghcr.io/tangzong2021/iot-master:v1.0.29
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -345,7 +345,7 @@ spec:
               mountPath: /app-data
       containers:
         - name: ${{ defaults.app_name }}
-          image: ghcr.io/tangzong2021/iot-master:v1.0.28
+          image: ghcr.io/tangzong2021/iot-master:v1.0.29
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
