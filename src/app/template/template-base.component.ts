@@ -13,6 +13,7 @@ import { LinkReplaceParams } from '../lib/utils';
 import dayjs from 'dayjs'
 import { UserService } from '../user.service';
 import { MqttService } from '../mqtt.service';
+import mqtt from 'mqtt';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -99,6 +100,41 @@ export class TemplateBase {
       }
     })
     this.mqttSubs.push(sub)
+  }
+
+  //一次性MQTT发布: 直连指定broker(如公网EMQX wss://emqx-jhykguet.sealosgzg.site/mqtt),
+  //发命令并可选等待设备回执主题, 收到回执或超时后断开。设备不在线时以超时失败告终。
+  mqttPublishOnce(url: string, cmdTopic: string, payload: string,
+                  replyTopic?: string, timeoutMs = 8000): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let done = false
+      const client = mqtt.connect(url, {
+        clientId: 'ui-' + Math.random().toString(36).slice(2, 12),
+        connectTimeout: 6000,
+        reconnectPeriod: 0
+      })
+      const finish = (err: any, res?: any) => {
+        if (done) return
+        done = true
+        try { client.end(true) } catch (e) { }
+        err ? reject(err) : resolve(res)
+      }
+      client.on('connect', () => {
+        if (replyTopic) {
+          client.subscribe(replyTopic, (err1: any) => {
+            if (err1) return finish(err1)
+            client.publish(cmdTopic, payload, { qos: 1 })
+          })
+        } else {
+          client.publish(cmdTopic, payload, { qos: 1 }, (err1: any) => finish(err1))
+        }
+      })
+      client.on('message', (topic: string, msg: Buffer) => {
+        if (replyTopic && topic === replyTopic) finish(null, msg.toString())
+      })
+      client.on('error', (e: Error) => finish(e))
+      setTimeout(() => finish(new Error('设备无响应(等待回执超时)')), timeoutMs)
+    })
   }
 
   mount() {

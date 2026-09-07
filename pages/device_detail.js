@@ -57,6 +57,46 @@ return {
       }
     },
     {
+      icon: 'thunderbolt',
+      type: 'button',
+      label: '5分钟快采',
+      confirm: '将采集上报周期切换为5分钟？（设备在线时立即生效，所有采集与两条上报通道同步加速；设备重启后自动恢复30分钟）',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.mqttPublishOnce(
+            'wss://emqx-jhykguet.sealosgzg.site/mqtt',
+            'device/' + data.id + '/interval/set', '{"interval":5}',
+            'device/' + data.id + '/interval/report', 8000
+          ).then(res => {
+            this.notification.success('切换成功', '设备回执: ' + res)
+          }).catch(err => {
+            this.notification.error('切换失败', (err && err.message) || String(err))
+          })
+        }
+      }
+    },
+    {
+      icon: 'rollback',
+      type: 'button',
+      label: '恢复30分钟',
+      confirm: '将采集上报周期恢复为30分钟？（设备在线时立即生效）',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.mqttPublishOnce(
+            'wss://emqx-jhykguet.sealosgzg.site/mqtt',
+            'device/' + data.id + '/interval/set', '{"interval":30}',
+            'device/' + data.id + '/interval/report', 8000
+          ).then(res => {
+            this.notification.success('切换成功', '设备回执: ' + res)
+          }).catch(err => {
+            this.notification.error('切换失败', (err && err.message) || String(err))
+          })
+        }
+      }
+    },
+    {
       icon: 'delete',
       type: 'button',
       label: '删除',
