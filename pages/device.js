@@ -132,6 +132,13 @@ return {
             'device/' + data.id + '/interval/report', 8000
           ).then(res => {
             this.notification.success('切换成功', '设备回执: ' + res)
+            try {
+              const r = typeof res === 'string' ? JSON.parse(res) : res
+              const n = r && (r.interval !== undefined ? r.interval : (r.enable === true ? 5 : (r.enable === false ? 30 : undefined)))
+              if (n === 5 || n === 30) {
+                this.request.post('device/' + data.id + '/setting/interval_state', { interval: n }).subscribe()
+              }
+            } catch (e) { }
           }).catch(err => {
             this.notification.error('切换失败', (err && err.message) || String(err))
           })
@@ -152,6 +159,13 @@ return {
             'device/' + data.id + '/interval/report', 8000
           ).then(res => {
             this.notification.success('切换成功', '设备回执: ' + res)
+            try {
+              const r = typeof res === 'string' ? JSON.parse(res) : res
+              const n = r && (r.interval !== undefined ? r.interval : (r.enable === true ? 5 : (r.enable === false ? 30 : undefined)))
+              if (n === 5 || n === 30) {
+                this.request.post('device/' + data.id + '/setting/interval_state', { interval: n }).subscribe()
+              }
+            } catch (e) { }
           }).catch(err => {
             this.notification.error('切换失败', (err && err.message) || String(err))
           })
