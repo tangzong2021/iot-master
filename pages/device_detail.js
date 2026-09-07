@@ -66,7 +66,7 @@ return {
         script(data, index) {
           this.mqttPublishOnce(
             'wss://emqx-jhykguet.sealosgzg.site/mqtt',
-            'device/' + data.id + '/interval/set', '{"interval":5}',
+            'device/' + data.id + '/interval/set', '{"cmd":"set_debug","enable":true}',
             'device/' + data.id + '/interval/report', 8000
           ).then(res => {
             this.notification.success('切换成功', '设备回执: ' + res)
@@ -86,7 +86,7 @@ return {
         script(data, index) {
           this.mqttPublishOnce(
             'wss://emqx-jhykguet.sealosgzg.site/mqtt',
-            'device/' + data.id + '/interval/set', '{"interval":30}',
+            'device/' + data.id + '/interval/set', '{"cmd":"set_debug","enable":false}',
             'device/' + data.id + '/interval/report', 8000
           ).then(res => {
             this.notification.success('切换成功', '设备回执: ' + res)
