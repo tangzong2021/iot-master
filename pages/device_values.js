@@ -77,6 +77,8 @@ return {
     load_model(pid) {
       this.request.get('product/' + pid + '/setting/model').subscribe(res => {
         if (res.error) return
+        this.points = []
+        ;(res.data.content || []).map(p => (p.points || []).map(pt => this.points.push(pt)))
         if (res.data.content) this.render_properties(res.data.content)
         setTimeout(() => this.render_values(), 100)
       })
@@ -122,8 +124,16 @@ return {
       })
     },
     render_values() {
+      const data = this.data || {}
+      //按物模型精度格式化数值显示(仅显示层, 未配precision的点位原样)
+      ;(this.points || []).map(p => {
+        const v = data[p.name]
+        if (typeof v === 'number' && p.precision !== undefined && p.precision !== null && !isNaN(Number(p.precision))) {
+          data[p.name] = Number(v).toFixed(Number(p.precision))
+        }
+      })
       this.pageComponent.children.map(p => {
-        p.componentRef.setInput('data', this.data || {})
+        p.componentRef.setInput('data', data)
       })
     }
   },

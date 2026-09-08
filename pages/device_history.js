@@ -85,52 +85,26 @@ return {
             alert('请先选择因子')
             return
           }
-          const query = {
-            start: this.dayjs(this.toolbar.value.start).toISOString(),
-            end: this.dayjs(this.toolbar.value.end).toISOString(),
-            window: this.toolbar.value.window + this.toolbar.value.unit,
-            method: this.toolbar.value.method
+          this.export_points_csv(points)
+        }
+      }
+    },
+    {
+      type: 'button',
+      label: '导出全部CSV',
+      action: {
+        type: 'script',
+        script(data, index) {
+          //导出产品全部因子，时间对齐合并为一个多列CSV
+          const points = this.points || []
+          if (!points.length) {
+            alert('该产品没有物模型点位')
+            return
           }
-          Promise.all(points.map(p => {
-            return new Promise(resolve => {
-              this.request.get('device/' + this.params.id + '/history/' + p.name, query)
-                .subscribe(res => resolve(res.data || []))
-            })
-          })).then(list => {
-            const table = {}
-            const times = []
-            list.forEach((records, idx) => {
-              const name = points[idx].name
-              records.map(r => {
-                if (table[r.time] === undefined) {
-                  table[r.time] = {}
-                  times.push(r.time)
-                }
-                table[r.time][name] = r.value
-              })
-            })
-            times.sort((a, b) => a - b)
-            if (!times.length) {
-              alert('当前时间范围内没有数据')
-              return
-            }
-            const rows = ['时间,' + points.map(p => p.label + '(' + p.name + ')').join(',')]
-            times.map(t => {
-              rows.push(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss') + ',' + points.map(p => {
-                const v = table[t][p.name]
-                return v === undefined ? '' : v
-              }).join(','))
-            })
-            const blob = new Blob(['\ufeff' + rows.join('\n')], {type: 'text/csv;charset=utf-8'})
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = this.params.id + '-points' + this.dayjs().format('-YYYYMMDDHHmmss') + '.csv'
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
-          })
+          if (points.length > 15) {
+            if (!confirm('即将导出全部 ' + points.length + ' 个因子的数据，列较多，确认继续？')) return
+          }
+          this.export_points_csv(points)
         }
       }
     },
@@ -206,6 +180,15 @@ return {
     })
   },
   methods: {
+    //按物模型点位精度格式化数值显示(未配precision或非数值则原样返回)
+    fmt_point(v, p) {
+      if (v === null || v === undefined || v === '') return v
+      const n = Number(v)
+      if (isNaN(n)) return v
+      const pr = p && p.precision
+      if (pr === undefined || pr === null || pr === '' || isNaN(Number(pr))) return v
+      return n.toFixed(Number(pr))
+    },
     //加载产品物模型全部点位，填充因子下拉框
     ensure_points(cb) {
       const fallback = [{name: this.params.point || 'value', label: this.params.point || '值'}]
@@ -240,6 +223,50 @@ return {
           load(res.data.product_id)
         })
       }
+    },
+    //导出指定点位为多列对齐CSV (时间 + 每个因子一列)
+    export_points_csv(points) {
+      if (!points.length) return
+      const query = {
+        start: this.dayjs(this.toolbar.value.start).toISOString(),
+        end: this.dayjs(this.toolbar.value.end).toISOString(),
+        window: this.toolbar.value.window + this.toolbar.value.unit,
+        method: this.toolbar.value.method
+      }
+      Promise.all(points.map(p => {
+        return new Promise(resolve => {
+          this.request.get('device/' + this.params.id + '/history/' + p.name, query)
+            .subscribe(res => resolve(res.data || []))
+        })
+      })).then(list => {
+        const table = {}
+        const times = []
+        list.forEach((records, idx) => {
+          const name = points[idx].name
+          records.map(r => {
+            if (table[r.time] === undefined) { table[r.time] = {}; times.push(r.time) }
+            table[r.time][name] = r.value
+          })
+        })
+        times.sort((a, b) => a - b)
+        if (!times.length) { alert('当前时间范围内没有数据'); return }
+        const rows = ['时间,' + points.map(p => p.label + '(' + p.name + ')').join(',')]
+        times.map(t => {
+          rows.push(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss') + ',' + points.map(p => {
+            const v = table[t][p.name]
+            return v === undefined ? '' : this.fmt_point(v, p)
+          }).join(','))
+        })
+        const blob = new Blob(['\ufeff' + rows.join('\n')], {type: 'text/csv;charset=utf-8'})
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = this.params.id + (points.length > 15 ? '-all' : '-points') + this.dayjs().format('-YYYYMMDDHHmmss') + '.csv'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      })
     },
     //按多选框选中的因子绘制：每因子独立纵轴自适应
     load_history() {
@@ -284,6 +311,20 @@ return {
           xAxis: {type: 'time'},
           legend: {data: names, top: 0},
           grid: {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40},
+          tooltip: {
+            trigger: 'axis',
+            //按各因子物模型精度格式化悬浮数值
+            formatter: (params) => {
+              if (!Array.isArray(params)) params = [params]
+              let html = this.dayjs(params[0].value[0]).format('YYYY-MM-DD HH:mm:ss')
+              params.forEach(p2 => {
+                const pt = points.find(x => (x.label ? x.label + '(' + x.name + ')' : x.name) === p2.seriesName)
+                const v = Array.isArray(p2.value) ? p2.value[1] : p2.value
+                html += '<br>' + p2.marker + ' ' + p2.seriesName + ': ' + this.fmt_point(v, pt)
+              })
+              return html
+            }
+          },
           yAxis: points.map((p, i) => {
             return {
               type: 'value',
@@ -351,7 +392,7 @@ return {
       html += '<thead><tr>' + th('时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
       const max = 500
       times.slice(0, max).map(t => {
-        html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(table[t][p.name])).join('') + '</tr>'
+        html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(this.fmt_point(table[t][p.name], p))).join('') + '</tr>'
       })
       html += '</tbody></table>'
       if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">仅显示前 ' + max + ' 行（共 ' + times.length + ' 行），请用导出CSV获取全部数据</div>'
