@@ -3,6 +3,7 @@ package history
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -125,6 +126,13 @@ func Query(table, id, name, start, end, window, method string) ([]*Point, error)
 		switch method {
 		case "last", "first", "min", "max":
 			agg += ", timeSrc: \"_time\", timeDst: \"_time\""
+		}
+		//聚合桶按服务器本地时区零点对齐(默认按UTC对齐, 1天窗口在东八区会按早上8点切分,
+		//导致用户选一天的范围却出现两组数据); offset=本地零点相对UTC零点的偏移
+		_, sec := time.Now().Zone()
+		off := (86400 - (sec % 86400)) % 86400
+		if off > 0 {
+			agg += fmt.Sprintf(", offset: %ds", off)
 		}
 		agg += ")\n"
 		flux += agg
