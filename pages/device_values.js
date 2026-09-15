@@ -136,11 +136,17 @@ return {
       //工具栏表单值可能尚未同步(挂载时序)，空则回退到 mount 设置的默认值，避免拼出 window=NaN
       const fv = (this.toolbar && this.toolbar.value) || {}
       const tv = (fv.start || fv.end) ? fv : (this.toolbarValue || {})
-      const start = tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss')
-      const end = tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss')
+      let s = this.dayjs(tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'))
+      let e = this.dayjs(tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss'))
+      //起止颠倒自动交换；两端相等(空范围)自动补1小时，避免InfluxDB报empty range
+      if (e.isBefore(s)) {
+        const t = s; s = e; e = t
+        this.notification.info('提示', '开始时间晚于结束时间，已自动交换')
+      }
+      if (!e.isAfter(s)) e = s.add(1, 'hour')
       const query = {
-        start: this.dayjs(start).toISOString(),
-        end: this.dayjs(end).toISOString()
+        start: s.toISOString(),
+        end: e.toISOString()
       }
       if (!allPoints.length) {
         this.render_table([], [])

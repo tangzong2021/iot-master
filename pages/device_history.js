@@ -284,9 +284,17 @@ return {
       const selNames = (this.toolbar.value && this.toolbar.value.factor_sel) || []
       const allPoints = this.points || []
       const selPoints = allPoints.filter(p => selNames.includes(p.name))
+      //起止颠倒自动交换；两端相等(空范围)自动补1小时，避免InfluxDB报empty range
+      let s = this.dayjs(this.toolbar.value.start)
+      let e = this.dayjs(this.toolbar.value.end)
+      if (e.isBefore(s)) {
+        const t = s; s = e; e = t
+        this.notification.info('提示', '开始时间晚于结束时间，已自动交换')
+      }
+      if (!e.isAfter(s)) e = s.add(1, 'hour')
       const query = {
-        start: this.dayjs(this.toolbar.value.start).toISOString(),
-        end: this.dayjs(this.toolbar.value.end).toISOString(),
+        start: s.toISOString(),
+        end: e.toISOString(),
         window: this.toolbar.value.window + this.toolbar.value.unit,
         method: this.toolbar.value.method
       }
