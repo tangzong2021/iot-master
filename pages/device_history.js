@@ -11,7 +11,13 @@ return {
       action: {
         type: 'script',
         script(data, index) {
-          this.navigate('/page/device_detail?id=' + this.params.id)
+          //用history.back()弹栈返回(不产生新历史记录, 多次进出不会叠栈);
+          //直接打开的本页无历史可退时, 兜底跳设备详情
+          if (window.history.length > 1) {
+            window.history.back()
+          } else {
+            this.navigate('/page/device_detail?id=' + this.params.id)
+          }
         }
       }
     },
