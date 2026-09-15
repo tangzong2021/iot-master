@@ -149,10 +149,17 @@ return {
     //查询：拉取时间范围内全部因子，渲染数据表（最新时刻在最上面）
     load_table() {
       const allPoints = this.points || []
+      //工具栏表单值可能尚未同步(挂载时序)，空则回退到 mount 设置的默认值，避免拼出 window=NaN
+      const fv = (this.toolbar && this.toolbar.value) || {}
+      const tv = (fv.start || fv.end) ? fv : (this.toolbarValue || {})
+      const start = tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      const end = tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss')
+      const win = Number(tv.window) > 0 ? Number(tv.window) : 5
+      const unit = ['s', 'm', 'h', 'd'].indexOf(tv.unit) >= 0 ? tv.unit : 'm'
       const query = {
-        start: this.dayjs(this.toolbar.value.start).toISOString(),
-        end: this.dayjs(this.toolbar.value.end).toISOString(),
-        window: this.toolbar.value.window + this.toolbar.value.unit,
+        start: this.dayjs(start).toISOString(),
+        end: this.dayjs(end).toISOString(),
+        window: win + unit,
         method: 'last'
       }
       if (!allPoints.length) {
@@ -167,15 +174,18 @@ return {
       })).then(list => this.render_table(list, allPoints))
     },
     //渲染数据表：全部因子铺列，时间倒序（最新在最上），缺失留空
+    //本页作为设备详情子Tab时页面里有两层app-detail，必须锚定最内层(本页自己的)，
+    //且表格放到工具栏卡片之后(区块底部)
     render_table(list, points) {
       let el = document.getElementById('rt-data-table')
-      const host = document.querySelector('app-detail')
+      const hosts = document.querySelectorAll('app-detail')
+      const host = hosts.length ? hosts[hosts.length - 1] : null
       if (!host) return
       if (!el) {
         el = document.createElement('div')
         el.id = 'rt-data-table'
-        el.style.cssText = 'margin:8px 0;max-height:60vh;overflow:auto;background:#fff;padding:8px'
-        host.insertBefore(el, host.firstChild)
+        el.style.cssText = 'margin:8px 0 0;max-height:60vh;overflow:auto;background:#fff;padding:8px'
+        host.appendChild(el)
       }
       if (!points || !points.length) {
         el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前产品没有物模型点位</div>'
