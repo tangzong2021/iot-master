@@ -48,8 +48,15 @@ return {
       label: '算子',
       default: 'last',
       options: [
-        { value: 'last', label: '最后值(显示设备采集时间)' },
-        { value: 'mean', label: '均值(显示窗口时刻)' }
+        { value: 'last', label: '最后值(设备采集时间)' },
+        { value: 'first', label: '首值(设备采集时间)' },
+        { value: 'max', label: '最大值(设备采集时间)' },
+        { value: 'min', label: '最小值(设备采集时间)' },
+        { value: 'mean', label: '均值(窗口时刻)' },
+        { value: 'median', label: '中位数(窗口时刻)' },
+        { value: 'count', label: '样本数(窗口时刻,查断档)' },
+        { value: 'stddev', label: '标准差(窗口时刻)' },
+        { value: 'spread', label: '波动幅度(窗口时刻)' }
       ]
     },
     {
