@@ -131,11 +131,11 @@ return {
     },
     //查询：拉取时间范围内全部因子，渲染数据表（最新时刻在最上面）
     //不传window=原始采样点查询，数据时间是设备真实采样时间（不随任何聚合设置变化）
-    load_table() {
+    load_table(useDefault) {
       const allPoints = this.points || []
-      //工具栏表单值可能尚未同步(挂载时序)，空则回退到 mount 设置的默认值，避免拼出 window=NaN
+      //工具栏表单值可能尚未同步(挂载时序)：start/end齐备才采用表单范围，否则用默认"过去1天"
       const fv = (this.toolbar && this.toolbar.value) || {}
-      const tv = (fv.start || fv.end) ? fv : (this.toolbarValue || {})
+      const tv = (!useDefault && fv.start && fv.end) ? fv : (this.toolbarValue || {})
       let s = this.dayjs(tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'))
       let e = this.dayjs(tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss'))
       //起止颠倒自动交换；两端相等(空范围)自动补1小时，避免InfluxDB报empty range
@@ -148,6 +148,7 @@ return {
         start: s.toISOString(),
         end: e.toISOString()
       }
+      window.__lastQuery = query
       if (!allPoints.length) {
         this.render_table([], [])
         return
@@ -155,9 +156,16 @@ return {
       Promise.all(allPoints.map(p => {
         return new Promise(resolve => {
           this.request.get('device/' + this.params.id + '/history/' + p.name, query)
-            .subscribe(res => resolve(res.data || []))
+            .subscribe(res => resolve(res.data || []), () => resolve([]))
         })
-      })).then(list => this.render_table(list, allPoints))
+      })).then(list => {
+        //全空且本次不是默认范围时，用默认"过去1天"自动重试一次(表单同步时序问题的兜底)
+        const total = list.reduce((n, r) => n + (r ? r.length : 0), 0)
+        if (total === 0 && !useDefault) {
+          return this.load_table(true)
+        }
+        this.render_table(list, allPoints)
+      })
     },
     //渲染数据表：全部因子铺列，时间倒序（最新在最上），缺失留空
     //本页作为设备详情子Tab时页面里有两层app-detail，必须锚定最内层(本页自己的)，
