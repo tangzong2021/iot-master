@@ -1,165 +1,216 @@
-// 实时数据页面配置
+// 实时数据页面配置：全因子数据表（可选时间范围查询，缺测留空）+ 数据曲线入口
+// 原分组卡片视图已移除（与历史曲线页数据表重复），本页即"选时间戳看数据"的主视图
 return {
   title: '实时数据',
   template: 'detail',
   toolbar: [
     {
+      key: 'start',
+      type: 'datetime',
+      label: '开始时间'
+    },
+    {
+      key: 'end',
+      type: 'datetime',
+      label: '结束时间'
+    },
+    {
+      key: 'window',
+      type: 'number',
+      default: '5',
+      label: '窗口'
+    },
+    {
+      key: 'unit',
+      type: 'select',
+      default: 'm',
+      options: [
+        { value: 's', label: '秒' },
+        { value: 'm', label: '分钟' },
+        { value: 'h', label: '小时' },
+        { value: 'd', label: '天' }
+      ]
+    },
+    {
       type: 'button',
-      label: '采集数据',
-      icon: 'reload',
+      label: '查询',
       action: {
         type: 'script',
         script(data, index) {
-          if (this.params.gateway_id) this.refresh_child_values()
-          else this.refresh_values()
+          this.load_table()
         }
       }
     },
     {
       type: 'button',
-      label: '修改数据',
-      icon: 'edit',
+      label: '数据曲线',
+      icon: 'line-chart',
       action: {
-        type: 'dialog',
-        page: 'device_values_setting',
-        params(data) {
-          return { id: this.params.id }
+        type: 'script',
+        script(data, index) {
+          this.navigate('/page/device_history?id=' + this.params.id)
+        }
+      }
+    },
+    {
+      type: 'link',
+      label: '过去1天',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.toolbarValue = {
+            start: this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'),
+            end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            window: 5,
+            unit: 'm'
+          }
+          setTimeout(() => this.load_table(), 100)
+        }
+      }
+    },
+    {
+      type: 'link',
+      label: '过去1小时',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.toolbarValue = {
+            start: this.dayjs().subtract(1, 'hour').format('YYYY-MM-DD HH:mm:ss'),
+            end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            window: 10,
+            unit: 's'
+          }
+          setTimeout(() => this.load_table(), 100)
+        }
+      }
+    },
+    {
+      type: 'link',
+      label: '过去10分钟',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.toolbarValue = {
+            start: this.dayjs().subtract(10, 'minute').format('YYYY-MM-DD HH:mm:ss'),
+            end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            window: 10,
+            unit: 's'
+          }
+          setTimeout(() => this.load_table(), 100)
         }
       }
     }
   ],
   items: [],
-  auto_refresh: 10,
-  load_api: 'device/:id/values',
-  load_success(data) {
-    //数据时间格式化（断网补发时显示的是设备采集时间）
-    if (data && data._update) {
-      const t = new Date(data._update)
-      if (!isNaN(t.getTime())) {
-        data._update = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0')
-      }
-    }
-    this.render_values()
-  },
   // 页面挂载时执行
   mount() {
-    this.load_model(this.params.product_id)
+    this.toolbarValue = {
+      start: this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'),
+      end: this.dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      window: 5,
+      unit: 'm'
+    }
+    this.ensure_points(() => this.load_table())
   },
   methods: {
-    load_values() {
-      this.request.get('device/' + this.params.id + '/values').subscribe(res => {
-        if (res.error) return
-        //数据时间格式化（断网补发时显示的是设备采集时间）
-        if (res.data && res.data._update) {
-          const t = new Date(res.data._update)
-          if (!isNaN(t.getTime())) {
-            res.data._update = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ':' + String(t.getSeconds()).padStart(2, '0')
+    //按物模型点位精度格式化数值显示(未配precision或非数值则原样返回)
+    fmt_point(v, p) {
+      if (v === null || v === undefined || v === '') return v
+      const n = Number(v)
+      if (isNaN(n)) return v
+      const pr = p && p.precision
+      if (pr === undefined || pr === null || pr === '' || isNaN(Number(pr))) return v
+      return n.toFixed(Number(pr))
+    },
+    //加载产品物模型全部点位
+    ensure_points(cb) {
+      const fallback = [{name: 'value', label: '值'}]
+      const load = (pid) => {
+        this.request.get('product/' + pid + '/setting/model').subscribe(res => {
+          const points = []
+          ;(res.data && res.data.content ? res.data.content : []).map(p => (p.points || []).map(pt => points.push(pt)))
+          this.points = points.length ? points : fallback
+          cb()
+        })
+      }
+      if (this.params.product_id) {
+        load(this.params.product_id)
+      } else {
+        this.request.get('table/device/detail/' + this.params.id).subscribe(res => {
+          if (res.error || !res.data || !res.data.product_id) {
+            this.points = fallback
+            cb()
+            return
           }
-        }
-        this.data = res.data
-      })
-    },
-    load_values_delay(delay) {
-      setTimeout(() => this.load_values(), delay || 1000)
-    },
-    refresh_values() {
-      this.request.get('device/' + this.params.id + '/sync').subscribe(res => {
-        if (res.error) return
-        this.load_values_delay()
-      })
-    },
-    refresh_child_values() {
-      this.request.get('device/' + this.params.gateway_id + '/sync/' + this.params.id).subscribe(res => {
-        if (res.error) return
-        this.load_values_delay()
-      })
-    },
-    load_model(pid) {
-      this.request.get('product/' + pid + '/setting/model').subscribe(res => {
-        if (res.error) return
-        this.points = []
-        ;(res.data.content || []).map(p => (p.points || []).map(pt => this.points.push(pt)))
-        if (res.data.content) this.render_properties(res.data.content)
-        setTimeout(() => this.render_values(), 100)
-      })
-    },
-    render_properties(properties) {
-      //数据时间卡片置顶（显示本批数据的采集时间）
-      this.content.children.unshift({
-        span: 24,
-        content: {
-          title: '数据时间',
-          template: 'statistic',
-          fields: [
-            {key: '_update', label: '采集时间'}
-          ]
-        }
-      })
-      if (properties) {
-        properties.map(p => {
-          this.content.children.push({
-            span: 24,
-            content: {
-              title: p.name,
-              template: 'statistic',
-              fields: this.render_points(p.points)
-            }
-          })
+          load(res.data.product_id)
         })
       }
     },
-    render_points(points) {
-      if (!points) return []
-      return points.map(p => {
-        return {
-          key: p.name,
-          label: p.label,
-          suffix: p.unit,
-          action: {
-            type: 'dialog',
-            page: 'device_history',
-            params: { id: this.params.id, point: p.name }
-          }
-        }
-      })
+    //查询：拉取时间范围内全部因子，渲染数据表（最新时刻在最上面）
+    load_table() {
+      const allPoints = this.points || []
+      const query = {
+        start: this.dayjs(this.toolbar.value.start).toISOString(),
+        end: this.dayjs(this.toolbar.value.end).toISOString(),
+        window: this.toolbar.value.window + this.toolbar.value.unit,
+        method: 'last'
+      }
+      if (!allPoints.length) {
+        this.render_table([], [])
+        return
+      }
+      Promise.all(allPoints.map(p => {
+        return new Promise(resolve => {
+          this.request.get('device/' + this.params.id + '/history/' + p.name, query)
+            .subscribe(res => resolve(res.data || []))
+        })
+      })).then(list => this.render_table(list, allPoints))
     },
-    render_values() {
-      const data = this.data || {}
-      //按物模型精度格式化数值显示(仅显示层, 未配precision的点位原样)
-      ;(this.points || []).map(p => {
-        const v = data[p.name]
-        if (typeof v === 'number' && p.precision !== undefined && p.precision !== null && !isNaN(Number(p.precision))) {
-          data[p.name] = Number(v).toFixed(Number(p.precision))
-        }
-      })
-      this.pageComponent.children.map(p => {
-        p.componentRef.setInput('data', data)
-      })
-      this.render_snapshot_table(data)
-    },
-    //最新读数快照表(置顶): 全部因子一行铺开, 缺测留空——与历史曲线数据表同款样式
-    render_snapshot_table(data) {
-      let el = document.getElementById('rt-snapshot-table')
+    //渲染数据表：全部因子铺列，时间倒序（最新在最上），缺失留空
+    render_table(list, points) {
+      let el = document.getElementById('rt-data-table')
       const host = document.querySelector('app-detail')
       if (!host) return
       if (!el) {
         el = document.createElement('div')
-        el.id = 'rt-snapshot-table'
-        el.style.cssText = 'margin:0 0 12px;overflow-x:auto;background:#fff;padding:8px'
+        el.id = 'rt-data-table'
+        el.style.cssText = 'margin:8px 0;max-height:60vh;overflow:auto;background:#fff;padding:8px'
         host.insertBefore(el, host.firstChild)
       }
-      const points = this.points || []
-      if (!points.length) return
+      if (!points || !points.length) {
+        el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前产品没有物模型点位</div>'
+        return
+      }
+      //按时间戳对齐合并
+      const table = {}
+      const times = []
+      list.forEach((records, idx) => {
+        const name = points[idx].name
+        records.map(r => {
+          if (table[r.time] === undefined) {
+            table[r.time] = {}
+            times.push(r.time)
+          }
+          table[r.time][name] = r.value
+        })
+      })
+      times.sort((a, b) => a - b)
+      if (!times.length) {
+        el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前时间范围内没有数据</div>'
+        return
+      }
       const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
-      const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap;font-weight:600">' + (v === null || v === undefined || v === '' ? '' : v) + '</td>'
-      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　最新读数（缺测留空）</div>'
+      const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
+      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻（最新在最上，缺测留空；需要曲线请点「数据曲线」）</div>'
       html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
       html += '<thead><tr>' + th('数据时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
-      const tstr = data._update || ''
-      html += '<tr>' + td(tstr) + points.map(p => td(data[p.name])).join('') + '</tr>'
+      const max = 500
+      times.slice().reverse().slice(0, max).map(t => {
+        html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(this.fmt_point(table[t][p.name], p))).join('') + '</tr>'
+      })
       html += '</tbody></table>'
+      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">仅显示最新 ' + max + ' 行（共 ' + times.length + ' 行），请缩小时间范围查看更早数据</div>'
       el.innerHTML = html
     }
-  },
-  children: []
+  }
 }
