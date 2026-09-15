@@ -268,19 +268,19 @@ return {
         URL.revokeObjectURL(url)
       })
     },
-    //按多选框选中的因子绘制：每因子独立纵轴自适应
+    //查询：一次性拉取全部因子——图表只画选中子集，数据表格按全部因子铺列(缺失留空)
     load_history() {
       const selNames = (this.toolbar.value && this.toolbar.value.factor_sel) || []
-      const points = (this.points || []).filter(p => selNames.includes(p.name))
+      const allPoints = this.points || []
+      const selPoints = allPoints.filter(p => selNames.includes(p.name))
       const query = {
         start: this.dayjs(this.toolbar.value.start).toISOString(),
         end: this.dayjs(this.toolbar.value.end).toISOString(),
         window: this.toolbar.value.window + this.toolbar.value.unit,
         method: this.toolbar.value.method
       }
-      if (!points.length) {
-        //默认空图：显示已选因子或引导提示，点「查询」才绘制
-        const text = '请在「选择因子」下拉框中选择因子（可多选），然后点击「查询」'
+      if (!allPoints.length) {
+        const text = '该产品没有物模型点位'
         this.chartOption = Object.assign({}, this.chartOption, {
           title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
           xAxis: {type: 'time'},
@@ -290,68 +290,83 @@ return {
           series: []
         })
         this.mergeOption = {}
-        this.render_data_table({}, [], [])
+        this.render_data_table([], [], [])
         return
       }
-      Promise.all(points.map(p => {
+      Promise.all(allPoints.map(p => {
         return new Promise(resolve => {
           this.request.get('device/' + this.params.id + '/history/' + p.name, query)
             .subscribe(res => resolve(res.data || []))
         })
       })).then(list => {
-        const names = points.map(p => p.label ? p.label + '(' + p.name + ')' : p.name)
-
-        //每因子一条独立纵轴，scale自适应数据区间，左右交替分布
-        //数据直接内嵌在各series（[毫秒, 值]），time轴原生支持
-        const n = points.length
-        const nLeft = Math.ceil(n / 2)
-        const axisNames = points.map(p => p.label || p.name)
-        this.chartOption = Object.assign({}, this.chartOption, {
-          title: {show: false},
-          xAxis: {type: 'time'},
-          legend: {data: names, top: 0},
-          grid: {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40},
-          tooltip: {
-            trigger: 'axis',
-            //按各因子物模型精度格式化悬浮数值
-            formatter: (params) => {
-              if (!Array.isArray(params)) params = [params]
-              let html = this.dayjs(params[0].value[0]).format('YYYY-MM-DD HH:mm:ss')
-              params.forEach(p2 => {
-                const pt = points.find(x => (x.label ? x.label + '(' + x.name + ')' : x.name) === p2.seriesName)
-                const v = Array.isArray(p2.value) ? p2.value[1] : p2.value
-                html += '<br>' + p2.marker + ' ' + p2.seriesName + ': ' + this.fmt_point(v, pt)
-              })
-              return html
-            }
-          },
-          yAxis: points.map((p, i) => {
-            return {
-              type: 'value',
-              scale: true,
-              name: axisNames[i],
-              position: i < nLeft ? 'left' : 'right',
-              offset: i < nLeft ? 36 * i : 36 * (i - nLeft),
-              axisLine: {show: true},
-              splitLine: {show: i === 0}
-            }
-          }),
-          series: points.map((p, i) => {
-            return {
-              name: names[i],
-              type: 'line',
-              yAxisIndex: i,
-              connectNulls: true,
-              showSymbol: false,
-              data: list[i].map(r => [r.time, r.value])
-            }
+        // --- 曲线：仅绘制选中的因子 ---
+        if (!selPoints.length) {
+          const text = '未选择因子，仅显示下方数据表格；选择因子后点「查询」绘制曲线'
+          this.chartOption = Object.assign({}, this.chartOption, {
+            title: {text: text, left: 'center', top: 'middle', textStyle: {color: '#555', fontSize: 15, fontWeight: 'normal'}},
+            xAxis: {type: 'time'},
+            yAxis: {},
+            legend: {data: []},
+            grid: {left: 60, right: 40, top: 45, bottom: 40},
+            series: []
           })
-        })
-        this.mergeOption = {}
-        this.render_data_table(list, points, query)
+          this.mergeOption = {}
+        } else {
+          const idxs = []
+          allPoints.forEach((p, i) => { if (selNames.includes(p.name)) idxs.push(i) })
+          const names = selPoints.map(p => p.label ? p.label + '(' + p.name + ')' : p.name)
+          //每因子一条独立纵轴，scale自适应数据区间，左右交替分布
+          const n = selPoints.length
+          const nLeft = Math.ceil(n / 2)
+          const axisNames = selPoints.map(p => p.label || p.name)
+          this.chartOption = Object.assign({}, this.chartOption, {
+            title: {show: false},
+            xAxis: {type: 'time'},
+            legend: {data: names, top: 0},
+            grid: {left: 60 + 40 * nLeft, right: 40 + 40 * (n - nLeft), top: 45, bottom: 40},
+            tooltip: {
+              trigger: 'axis',
+              //按各因子物模型精度格式化悬浮数值
+              formatter: (params) => {
+                if (!Array.isArray(params)) params = [params]
+                let html = this.dayjs(params[0].value[0]).format('YYYY-MM-DD HH:mm:ss')
+                params.forEach(p2 => {
+                  const pt = selPoints.find(x => (x.label ? x.label + '(' + x.name + ')' : x.name) === p2.seriesName)
+                  const v = Array.isArray(p2.value) ? p2.value[1] : p2.value
+                  html += '<br>' + p2.marker + ' ' + p2.seriesName + ': ' + this.fmt_point(v, pt)
+                })
+                return html
+              }
+            },
+            yAxis: selPoints.map((p, i) => {
+              return {
+                type: 'value',
+                scale: true,
+                name: axisNames[i],
+                position: i < nLeft ? 'left' : 'right',
+                offset: i < nLeft ? 36 * i : 36 * (i - nLeft),
+                axisLine: {show: true},
+                splitLine: {show: i === 0}
+              }
+            }),
+            series: selPoints.map((p, i) => {
+              return {
+                name: names[i],
+                type: 'line',
+                yAxisIndex: i,
+                connectNulls: true,
+                showSymbol: false,
+                data: list[idxs[i]].map(r => [r.time, r.value])
+              }
+            })
+          })
+          this.mergeOption = {}
+        }
+        // --- 表格：全部因子铺列，缺失留空 ---
+        this.render_data_table(list, allPoints, query)
       })
     },
-    //渲染已选因子的数据表格（图表下方，时间对齐）
+    //渲染数据表格（图表下方，全部因子铺列，时间对齐，缺失留空）
     render_data_table(list, points, query) {
       let el = document.getElementById('history-data-table')
       const host = document.querySelector('app-chart')
@@ -365,7 +380,7 @@ return {
         host.appendChild(el)
       }
       if (!points || !points.length) {
-        el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">请先在上方选择因子，查询后此处显示数据表格</div>'
+        el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前产品没有物模型点位</div>'
         return
       }
       //按时间戳对齐合并
@@ -388,7 +403,8 @@ return {
       }
       const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
       const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
-      let html = '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
+      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻</div>'
+      html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
       html += '<thead><tr>' + th('时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
       const max = 500
       times.slice(0, max).map(t => {
