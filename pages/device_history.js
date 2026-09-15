@@ -48,8 +48,8 @@ return {
       label: '算子',
       default: 'last',
       options: [
-        { value: 'last', label: '最后值' },
-        { value: 'mean', label: '均值' }
+        { value: 'last', label: '最后值(显示设备采集时间)' },
+        { value: 'mean', label: '均值(显示窗口时刻)' }
       ]
     },
     {

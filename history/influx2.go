@@ -119,10 +119,13 @@ func Query(table, id, name, start, end, window, method string) ([]*Point, error)
 	flux += "|> filter(fn: (r) => r[\"_field\"] == \"" + name + "\")"
 	//window留空=原始采样点查询, 保留设备真实采样时间; 传了窗口才做桶聚合
 	if window != "" {
-		//时间标签=聚合桶起点(窗口的整数倍网格): 选30分钟窗口即输出30分整数倍时刻,
-		//末尾被截断的桶其起点仍在网格上, 不会标出查询终点时间
 		agg := "|> aggregateWindow(every: " + window + ", fn: " + method + ", createEmpty: false"
-		agg += ", timeSrc: \"_start\", timeDst: \"_time\""
+		//选择器算子(last/first/min/max)保留被选中样本的真实采样时间(设备_time入库时间):
+		//断网补发的数据按原采集时间入库, 标签跟随真实时间才不会错乱; 均值类算子无单一采样时刻, 用桶边界
+		switch method {
+		case "last", "first", "min", "max":
+			agg += ", timeSrc: \"_time\", timeDst: \"_time\""
+		}
 		agg += ")\n"
 		flux += agg
 		flux += "|> yield(name: \"" + method + "\")"
