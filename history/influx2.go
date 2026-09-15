@@ -119,7 +119,14 @@ func Query(table, id, name, start, end, window, method string) ([]*Point, error)
 	flux += "|> filter(fn: (r) => r[\"_field\"] == \"" + name + "\")"
 	//window留空=原始采样点查询, 保留设备真实采样时间; 传了窗口才做桶聚合
 	if window != "" {
-		flux += "|> aggregateWindow(every: " + window + ", fn: " + method + ", createEmpty: false)\n"
+		agg := "|> aggregateWindow(every: " + window + ", fn: " + method + ", createEmpty: false"
+		//选择器算子保留被选中样本的真实采样时间, 避免末尾截断桶标出查询终点时间让人困惑
+		switch method {
+		case "last", "first", "min", "max":
+			agg += ", timeSrc: \"_time\", timeDst: \"_time\""
+		}
+		agg += ")\n"
+		flux += agg
 		flux += "|> yield(name: \"" + method + "\")"
 	}
 
