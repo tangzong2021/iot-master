@@ -117,8 +117,11 @@ func Query(table, id, name, start, end, window, method string) ([]*Point, error)
 	flux += "|> filter(fn: (r) => r[\"_measurement\"] == \"" + table + "\")\n"
 	flux += "|> filter(fn: (r) => r[\"id\"] == \"" + id + "\")\n"
 	flux += "|> filter(fn: (r) => r[\"_field\"] == \"" + name + "\")"
-	flux += "|> aggregateWindow(every: " + window + ", fn: " + method + ", createEmpty: false)\n"
-	flux += "|> yield(name: \"" + method + "\")"
+	//window留空=原始采样点查询, 保留设备真实采样时间; 传了窗口才做桶聚合
+	if window != "" {
+		flux += "|> aggregateWindow(every: " + window + ", fn: " + method + ", createEmpty: false)\n"
+		flux += "|> yield(name: \"" + method + "\")"
+	}
 
 	result, err := reader.Query(context.Background(), flux)
 	if err != nil {

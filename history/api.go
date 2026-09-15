@@ -31,8 +31,8 @@ func deviceHistory(ctx *gin.Context) {
 	key := ctx.Param("point")
 	start := ctx.DefaultQuery("start", "-5h")
 	end := ctx.DefaultQuery("end", "0h")
-	window := ctx.DefaultQuery("window", "10m")
-	method := ctx.DefaultQuery("method", "mean") //last
+	window := ctx.Query("window") //留空=原始采样点(不聚合, 时间为设备真实采样时间)
+	method := ctx.DefaultQuery("method", "last") //last
 
 	points, err := Query(dev.ProductId, dev.Id, key, start, end, window, method)
 	if err != nil {

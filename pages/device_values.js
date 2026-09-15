@@ -15,23 +15,6 @@ return {
       label: '结束时间'
     },
     {
-      key: 'window',
-      type: 'number',
-      default: '5',
-      label: '窗口'
-    },
-    {
-      key: 'unit',
-      type: 'select',
-      default: 'm',
-      options: [
-        { value: 's', label: '秒' },
-        { value: 'm', label: '分钟' },
-        { value: 'h', label: '小时' },
-        { value: 'd', label: '天' }
-      ]
-    },
-    {
       type: 'button',
       label: '查询',
       action: {
@@ -147,6 +130,7 @@ return {
       }
     },
     //查询：拉取时间范围内全部因子，渲染数据表（最新时刻在最上面）
+    //不传window=原始采样点查询，数据时间是设备真实采样时间（不随任何聚合设置变化）
     load_table() {
       const allPoints = this.points || []
       //工具栏表单值可能尚未同步(挂载时序)，空则回退到 mount 设置的默认值，避免拼出 window=NaN
@@ -154,13 +138,9 @@ return {
       const tv = (fv.start || fv.end) ? fv : (this.toolbarValue || {})
       const start = tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss')
       const end = tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss')
-      const win = Number(tv.window) > 0 ? Number(tv.window) : 5
-      const unit = ['s', 'm', 'h', 'd'].indexOf(tv.unit) >= 0 ? tv.unit : 'm'
       const query = {
         start: this.dayjs(start).toISOString(),
-        end: this.dayjs(end).toISOString(),
-        window: win + unit,
-        method: 'last'
+        end: this.dayjs(end).toISOString()
       }
       if (!allPoints.length) {
         this.render_table([], [])
