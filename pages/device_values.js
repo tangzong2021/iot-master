@@ -135,6 +135,30 @@ return {
       this.pageComponent.children.map(p => {
         p.componentRef.setInput('data', data)
       })
+      this.render_snapshot_table(data)
+    },
+    //最新读数快照表(置顶): 全部因子一行铺开, 缺测留空——与历史曲线数据表同款样式
+    render_snapshot_table(data) {
+      let el = document.getElementById('rt-snapshot-table')
+      const host = document.querySelector('app-detail')
+      if (!host) return
+      if (!el) {
+        el = document.createElement('div')
+        el.id = 'rt-snapshot-table'
+        el.style.cssText = 'margin:0 0 12px;overflow-x:auto;background:#fff;padding:8px'
+        host.insertBefore(el, host.firstChild)
+      }
+      const points = this.points || []
+      if (!points.length) return
+      const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
+      const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap;font-weight:600">' + (v === null || v === undefined || v === '' ? '' : v) + '</td>'
+      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　最新读数（缺测留空）</div>'
+      html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
+      html += '<thead><tr>' + th('数据时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
+      const tstr = data._update || ''
+      html += '<tr>' + td(tstr) + points.map(p => td(data[p.name])).join('') + '</tr>'
+      html += '</tbody></table>'
+      el.innerHTML = html
     }
   },
   children: []
