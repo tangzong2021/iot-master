@@ -5,6 +5,17 @@ return {
   type: 'line',
   toolbar: [
     {
+      type: 'button',
+      label: '返回',
+      icon: 'arrow-left',
+      action: {
+        type: 'script',
+        script(data, index) {
+          this.navigate('/page/device_detail?id=' + this.params.id)
+        }
+      }
+    },
+    {
       key: 'start',
       type: 'datetime',
       label: '开始时间'
