@@ -1,6 +1,6 @@
 // ============================================================
-// 登录页 —— ThingsCloud 风格浅色清爽版
-// 浅蓝渐变背景 + 柔光色块 + 白色圆角卡片 + 蓝色主按钮
+// 登录页 —— 深色科技 · 玻璃拟态
+// 深海军蓝底 + 发光网格/星点/极光 + 毛玻璃卡片 + 青蓝渐变按钮
 // ============================================================
 
 :host {
@@ -8,10 +8,12 @@
   height: 100vh;
   height: 100dvh;
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #eaf2ff 0%, #f6faff 45%, #edf2fb 100%);
+  background:
+    radial-gradient(ellipse 80% 60% at 70% -10%, rgba(37, 99, 235, 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 55% at 15% 110%, rgba(14, 165, 233, 0.16) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0f1e 0%, #0c1428 55%, #0a1120 100%);
   overflow: hidden;
   position: relative;
 }
@@ -28,58 +30,69 @@
   overflow-y: auto;
 }
 
-// ---------- 背景：柔光色块与细网格 ----------
-
-.bg-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  pointer-events: none;
-  animation: blobFloat 14s ease-in-out infinite;
-}
-
-.bg-blob-1 {
-  width: 480px;
-  height: 480px;
-  left: -140px;
-  top: -160px;
-  background: radial-gradient(circle at 40% 40%, #cfe0ff 0%, rgba(207, 224, 255, 0) 70%);
-}
-
-.bg-blob-2 {
-  width: 420px;
-  height: 420px;
-  right: -120px;
-  bottom: -140px;
-  background: radial-gradient(circle at 60% 60%, #d5f0ff 0%, rgba(213, 240, 255, 0) 70%);
-  animation-delay: -5s;
-}
-
-.bg-blob-3 {
-  width: 300px;
-  height: 300px;
-  right: 12%;
-  top: -100px;
-  background: radial-gradient(circle at 50% 50%, #e4dbff 0%, rgba(228, 219, 255, 0) 70%);
-  animation-delay: -9s;
-}
-
-@keyframes blobFloat {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(24px, 18px) scale(1.06); }
-}
+// ---------- 背景：发光网格 / 极光 / 星点 ----------
 
 .bg-grid {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(47, 123, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(47, 123, 255, 0.045) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 30%, transparent 75%);
+    linear-gradient(rgba(96, 165, 250, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 165, 250, 0.07) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 40%, #000 25%, transparent 78%);
   pointer-events: none;
+}
+
+.bg-aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  animation: auroraFloat 16s ease-in-out infinite;
+}
+
+.bg-aurora-1 {
+  width: 560px;
+  height: 560px;
+  left: -180px;
+  top: -180px;
+  background: radial-gradient(circle at 45% 45%, rgba(37, 99, 235, 0.28) 0%, transparent 68%);
+}
+
+.bg-aurora-2 {
+  width: 520px;
+  height: 520px;
+  right: -160px;
+  bottom: -180px;
+  background: radial-gradient(circle at 55% 55%, rgba(14, 165, 233, 0.2) 0%, transparent 68%);
+  animation-delay: -8s;
+}
+
+@keyframes auroraFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 22px) scale(1.08); }
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(170, 214, 255, 0.85);
+  box-shadow: 0 0 6px 1px rgba(125, 190, 255, 0.55);
+  animation: twinkle 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.star.s1 { width: 2px; height: 2px; left: 12%; top: 18%; }
+.star.s2 { width: 3px; height: 3px; left: 82%; top: 14%; animation-delay: -0.8s; }
+.star.s3 { width: 2px; height: 2px; left: 68%; top: 32%; animation-delay: -1.6s; }
+.star.s4 { width: 2px; height: 2px; left: 22%; top: 68%; animation-delay: -2.1s; }
+.star.s5 { width: 3px; height: 3px; left: 88%; top: 62%; animation-delay: -1.2s; }
+.star.s6 { width: 2px; height: 2px; left: 8%;  top: 42%; animation-delay: -2.6s; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.25); }
 }
 
 // ---------- 登录容器 ----------
@@ -104,48 +117,52 @@
 
 .logo-container {
   position: relative;
-  width: 72px;
-  height: 72px;
+  width: 74px;
+  height: 74px;
   margin: 0 auto 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 20px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(147, 197, 253, 0.25);
   box-shadow:
-    0 6px 20px rgba(47, 123, 255, 0.16),
-    0 1px 3px rgba(47, 123, 255, 0.08);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 26px rgba(56, 189, 248, 0.18);
+  backdrop-filter: blur(6px);
+  transition: all 0.3s ease;
 }
 
 .logo-container:hover {
   transform: translateY(-3px);
   box-shadow:
-    0 12px 28px rgba(47, 123, 255, 0.22),
-    0 2px 6px rgba(47, 123, 255, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 36px rgba(56, 189, 248, 0.3);
 }
 
 .logo-svg {
   width: 46px;
   height: 46px;
   display: block;
+  filter: drop-shadow(0 0 10px rgba(125, 190, 255, 0.45));
 }
 
 .welcome-title {
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 700;
-  color: #1c2b46;
+  color: #eef4ff;
   margin: 0 0 8px 0;
-  letter-spacing: 6px;
-  text-indent: 6px;
+  letter-spacing: 8px;
+  text-indent: 8px;
+  text-shadow: 0 0 24px rgba(96, 165, 250, 0.45);
 }
 
 .welcome-subtitle {
   font-size: 13px;
-  color: #7d93b8;
+  color: rgba(147, 197, 253, 0.75);
   margin: 0;
-  letter-spacing: 5px;
-  text-indent: 5px;
+  letter-spacing: 6px;
+  text-indent: 6px;
   text-transform: uppercase;
   font-weight: 500;
 }
@@ -161,28 +178,30 @@
   }
 }
 
-// ---------- 登录卡片 ----------
+// ---------- 玻璃登录卡片 ----------
 
 .login-card {
   width: min(420px, calc(100vw - 32px));
-  border-radius: 16px;
-  border: 1px solid #e7eef9;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 197, 253, 0.22);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.035) 100%);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
   box-shadow:
-    0 12px 40px rgba(36, 92, 193, 0.1),
-    0 2px 8px rgba(36, 92, 193, 0.05);
+    0 24px 60px rgba(2, 8, 26, 0.55),
+    0 0 32px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   animation: fadeInUp 0.7s ease-out 0.1s backwards;
   overflow: hidden;
 }
 
 .login-card ::ng-deep .ant-card-head {
   background: transparent;
-  border-bottom: 1px solid #eef3fa;
+  border-bottom: 1px solid rgba(148, 197, 253, 0.14);
 }
 
 .login-card ::ng-deep .ant-card-head-title {
-  color: #1c2b46;
+  color: #dbeafe;
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 1px;
@@ -192,30 +211,30 @@
   padding: 28px 30px 22px;
 }
 
-// 表单控件浅色化
+// 表单控件玻璃化
 .login-card ::ng-deep .ant-form-item-label > label {
-  color: #51607a;
+  color: rgba(219, 234, 254, 0.85);
   font-weight: 500;
 }
 
 .login-card ::ng-deep .ant-input {
-  background: #f7f9fd;
-  border: 1px solid #e2eaf6;
-  color: #1c2b46;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 197, 253, 0.2);
+  color: #eef4ff;
   border-radius: 10px;
   height: 42px;
   transition: all 0.25s ease;
 }
 
-.login-card ::ng-deep .ant-input:focus,
-.login-card ::ng-deep .ant-input:hover {
-  background: #ffffff;
-  border-color: #2f7bff;
-  box-shadow: 0 0 0 3px rgba(47, 123, 255, 0.1);
+.login-card ::ng-deep .ant-input::placeholder {
+  color: rgba(219, 234, 254, 0.35);
 }
 
-.login-card ::ng-deep .ant-input::placeholder {
-  color: #a8b8d0;
+.login-card ::ng-deep .ant-input:focus,
+.login-card ::ng-deep .ant-input:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
 }
 
 @keyframes fadeInUp {
@@ -239,20 +258,24 @@
   width: 100%;
   height: 44px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #3f8cff 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
   border: none;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 6px;
   text-indent: 6px;
   color: #ffffff;
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+  box-shadow:
+    0 8px 20px rgba(37, 99, 235, 0.42),
+    0 0 14px rgba(56, 189, 248, 0.28);
   transition: all 0.25s ease;
 }
 
 .login-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.38);
+  box-shadow:
+    0 10px 26px rgba(37, 99, 235, 0.5),
+    0 0 20px rgba(56, 189, 248, 0.38);
 }
 
 .login-button:active {
@@ -269,7 +292,7 @@
 .login-footer {
   margin: 0;
   font-size: 12px;
-  color: #93a5c2;
+  color: rgba(147, 197, 253, 0.5);
   letter-spacing: 2px;
   animation: fadeInUp 0.7s ease-out 0.2s backwards;
 }
@@ -293,8 +316,8 @@
   }
 
   .logo-container {
-    width: 60px;
-    height: 60px;
+    width: 62px;
+    height: 62px;
     margin-bottom: 12px;
     border-radius: 16px;
   }
@@ -305,23 +328,22 @@
   }
 
   .welcome-title {
-    font-size: 26px;
-    letter-spacing: 4px;
-    text-indent: 4px;
+    font-size: 27px;
+    letter-spacing: 5px;
+    text-indent: 5px;
   }
 
   .welcome-subtitle {
     font-size: 12px;
-    letter-spacing: 3px;
-    text-indent: 3px;
+    letter-spacing: 4px;
+    text-indent: 4px;
   }
 
   .login-card ::ng-deep .ant-card-body {
     padding: 20px;
   }
 
-  .bg-blob {
-    filter: blur(50px);
-    opacity: 0.45;
+  .bg-aurora {
+    filter: blur(64px);
   }
 }
