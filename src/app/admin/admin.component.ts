@@ -34,7 +34,7 @@ export class AdminComponent {
   isCollapsed = false;
 
   oem: any = {
-    name: '物联大师',
+    name: '物联平台',
     logo: '/logo.svg',
     company: '南京本易物联网有限公司',
   }
