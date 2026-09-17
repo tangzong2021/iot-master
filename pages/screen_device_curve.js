@@ -15,7 +15,7 @@ return {
         type: 'line',
         time: true,
         theme: 'dark',
-        height: 260,
+        height: 200,
         legend: false,
         tooltip: true,
         style: { margin: '5px' },

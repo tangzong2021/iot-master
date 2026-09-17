@@ -15,14 +15,12 @@ return {
         bodyStyle: { color: 'white', background: 'transparent' },
         fields: [
           { label: '溶解氧', key: 'do1_conc', suffix: 'mg/L' },
-          { label: '水温', key: 'do1_temp', suffix: '℃' },
-          { label: '电压', key: 'volt', suffix: 'V' },
-          { label: '湿度', key: 'cabin_humidity', suffix: '%' }
+          { label: '电压', key: 'volt', suffix: 'V' }
         ],
         mount() {
           var self = this
           self.data = {}
-          var fmt = { do1_conc: 2, do1_temp: 2, volt: 1, cabin_humidity: 1 }
+          var fmt = { do1_conc: 2, volt: 1 }
           var load = function () {
             self.request.get('device/' + DATA_DEVICE + '/values').subscribe(function (res) {
               if (res.error || !res.data) return

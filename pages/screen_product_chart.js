@@ -4,7 +4,7 @@ return {
   title: '产品类型',
   icon: '/emoji/chart.svg',
   type: 'pie',
-  height: 220,
+  height: 160,
   theme: 'dark',
   legend: true,
   tooltip: true,
