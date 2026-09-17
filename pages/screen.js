@@ -1,4 +1,7 @@
 // 地图大屏页面配置
+// 布局(两行网格, 一屏可见):
+//   行1: [左]产品类型饼图+实时数据卡(6) | [中]设备统计(12) | [右]各产品设备数量柱图(6)
+//   行2: [中]设备趋势曲线(12)           | [右]报警日志(6, 内部滚动)
 return {
   template: 'amap',
   height: '100vh',
@@ -82,6 +85,7 @@ return {
                   icon: '/emoji/chart.svg',
                   template: 'chart',
                   style: { margin: '5px' },
+                  height: 260,
                   type: 'bar',
                   theme: 'dark',
                   bodyStyle: { color: 'white', padding: 0 },
@@ -98,7 +102,26 @@ return {
                     })
                   }
                 }
-              },
+              }
+            ]
+          }
+        },
+        {
+          span: 12,
+          content: {
+            template: 'blank',
+            children: [
+              {
+                page: 'screen_device_curve'
+              }
+            ]
+          }
+        },
+        {
+          span: 6,
+          content: {
+            template: 'blank',
+            children: [
               {
                 content: {
                   title: '报警日志',
@@ -109,24 +132,15 @@ return {
                   bodyStyle: {
                     color: 'white',
                     'background-color': 'black',
-                    padding: 0
+                    padding: 0,
+                    'max-height': '260px',
+                    'overflow-y': 'auto'
                   },
                   fields: [
                     { key: 'created', label: '时间', type: 'date' },
                     { key: 'device_name', label: '设备', type: 'text' },
                     { key: 'title', label: '标题', type: 'text' },
                     { key: 'message', label: '消息', type: 'text' }
-                  ]
-                }
-              },
-              {
-                span: 12,
-                content: {
-                  template: 'blank',
-                  children: [
-                    {
-                      page: 'screen_device_curve'
-                    }
                   ]
                 }
               }
