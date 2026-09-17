@@ -100,12 +100,20 @@ return {
                 content: {
                   title: '报警日志',
                   template: 'list',
+                  auto_refresh: 60,
+                  search_api: 'table/alarm/search',
                   style: { margin: '5px' },
                   bodyStyle: {
                     color: 'white',
                     'background-color': 'black',
                     padding: 0
-                  }
+                  },
+                  fields: [
+                    { key: 'created', label: '时间', type: 'date' },
+                    { key: 'device_name', label: '设备', type: 'text' },
+                    { key: 'title', label: '标题', type: 'text' },
+                    { key: 'message', label: '消息', type: 'text' }
+                  ]
                 }
               }
             ]

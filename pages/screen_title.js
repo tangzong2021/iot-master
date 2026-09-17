@@ -1,7 +1,7 @@
 // 标题页面配置
 return {
   template: 'text',
-  text: '物联大师',
+  text: '物联平台',
   style: {
     color: 'white',
     'font-weight': 'bolder',
