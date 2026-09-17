@@ -41,9 +41,6 @@ return {
               },
               {
                 page: 'screen_device_data'
-              },
-              {
-                page: 'screen_device_curve'
               }
             ]
           }
@@ -119,6 +116,17 @@ return {
                     { key: 'device_name', label: '设备', type: 'text' },
                     { key: 'title', label: '标题', type: 'text' },
                     { key: 'message', label: '消息', type: 'text' }
+                  ]
+                }
+              },
+              {
+                span: 12,
+                content: {
+                  template: 'blank',
+                  children: [
+                    {
+                      page: 'screen_device_curve'
+                    }
                   ]
                 }
               }
