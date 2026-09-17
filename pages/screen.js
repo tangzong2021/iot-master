@@ -38,6 +38,12 @@ return {
             children: [
               {
                 page: 'screen_product_chart'
+              },
+              {
+                page: 'screen_device_data'
+              },
+              {
+                page: 'screen_device_curve'
               }
             ]
           }
@@ -115,9 +121,6 @@ return {
                     { key: 'message', label: '消息', type: 'text' }
                   ]
                 }
-              },
-              {
-                page: 'screen_device_monitor'
               }
             ]
           }
