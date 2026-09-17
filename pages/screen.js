@@ -115,6 +115,9 @@ return {
                     { key: 'message', label: '消息', type: 'text' }
                   ]
                 }
+              },
+              {
+                page: 'screen_device_monitor'
               }
             ]
           }
