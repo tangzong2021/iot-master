@@ -4,11 +4,10 @@ return {
   title: '产品类型',
   icon: '/emoji/chart.svg',
   type: 'pie',
-  height: 160,
   theme: 'dark',
   legend: true,
   tooltip: true,
-  style: { margin: '5px', overflow: 'hidden' },
+  style: { margin: '5px' },
   bodyStyle: { color: 'white', padding: 0 },
   mount() {
     this.load_data()
@@ -45,7 +44,7 @@ return {
     }
   },
   demo: [
-    ['物联平台', 4],
+    ['物联小白', 4],
     ['RTU', 2],
     ['其他', 1]
   ]

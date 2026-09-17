@@ -1,7 +1,4 @@
 // 地图大屏页面配置
-// 布局(两行网格, 一屏可见):
-//   行1: [左]产品类型饼图+实时数据卡(6) | [中]设备统计(12) | [右]各产品设备数量柱图(6)
-//   行2: [中]设备趋势曲线(12)           | [右]报警日志(6, 内部滚动)
 return {
   template: 'amap',
   height: '100vh',
@@ -41,9 +38,6 @@ return {
             children: [
               {
                 page: 'screen_product_chart'
-              },
-              {
-                page: 'screen_device_data'
               }
             ]
           }
@@ -54,7 +48,7 @@ return {
             template: 'statistic',
             style: { margin: '5px' },
             style2: { color: 'white', background: 'transparent' },
-            bodyStyle: { color: '#eef4ff', background: 'rgba(12, 20, 40, 0.72)', border: '1px solid rgba(148, 197, 253, 0.2)', borderRadius: '10px' },
+            bodyStyle: { color: 'white', background: 'transparent' },
             fields: [
               { label: '总数', key: 'total' },
               { label: '在线', key: 'online' },
@@ -84,8 +78,7 @@ return {
                   title: '各产品设备数量',
                   icon: '/emoji/chart.svg',
                   template: 'chart',
-                  style: { margin: '5px', overflow: 'hidden' },
-                  height: 260,
+                  style: { margin: '5px' },
                   type: 'bar',
                   theme: 'dark',
                   bodyStyle: { color: 'white', padding: 0 },
@@ -102,46 +95,17 @@ return {
                     })
                   }
                 }
-              }
-            ]
-          }
-        },
-        {
-          span: 12,
-          content: {
-            template: 'blank',
-            children: [
-              {
-                page: 'screen_device_curve'
-              }
-            ]
-          }
-        },
-        {
-          span: 6,
-          content: {
-            template: 'blank',
-            children: [
+              },
               {
                 content: {
                   title: '报警日志',
                   template: 'list',
-                  auto_refresh: 60,
-                  search_api: 'table/alarm/search',
                   style: { margin: '5px' },
                   bodyStyle: {
                     color: 'white',
                     'background-color': 'black',
-                    padding: 0,
-                    'max-height': '260px',
-                    'overflow-y': 'auto'
-                  },
-                  fields: [
-                    { key: 'created', label: '时间', type: 'date' },
-                    { key: 'device_name', label: '设备', type: 'text' },
-                    { key: 'title', label: '标题', type: 'text' },
-                    { key: 'message', label: '消息', type: 'text' }
-                  ]
+                    padding: 0
+                  }
                 }
               }
             ]
