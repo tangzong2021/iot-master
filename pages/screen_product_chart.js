@@ -8,7 +8,7 @@ return {
   theme: 'dark',
   legend: true,
   tooltip: true,
-  style: { margin: '5px' },
+  style: { margin: '5px', overflow: 'hidden' },
   bodyStyle: { color: 'white', padding: 0 },
   mount() {
     this.load_data()

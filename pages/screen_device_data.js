@@ -12,7 +12,7 @@ return {
         template: 'statistic',
         style: { margin: '5px' },
         style2: { color: 'white', background: 'transparent' },
-        bodyStyle: { color: 'white', background: 'transparent' },
+        bodyStyle: { color: '#eef4ff', background: 'rgba(12, 20, 40, 0.72)', border: '1px solid rgba(148, 197, 253, 0.2)', borderRadius: '10px' },
         fields: [
           { label: '溶解氧', key: 'do1_conc', suffix: 'mg/L' },
           { label: '电压', key: 'volt', suffix: 'V' }

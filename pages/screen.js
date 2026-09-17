@@ -54,7 +54,7 @@ return {
             template: 'statistic',
             style: { margin: '5px' },
             style2: { color: 'white', background: 'transparent' },
-            bodyStyle: { color: 'white', background: 'transparent' },
+            bodyStyle: { color: '#eef4ff', background: 'rgba(12, 20, 40, 0.72)', border: '1px solid rgba(148, 197, 253, 0.2)', borderRadius: '10px' },
             fields: [
               { label: '总数', key: 'total' },
               { label: '在线', key: 'online' },
@@ -84,7 +84,7 @@ return {
                   title: '各产品设备数量',
                   icon: '/emoji/chart.svg',
                   template: 'chart',
-                  style: { margin: '5px' },
+                  style: { margin: '5px', overflow: 'hidden' },
                   height: 260,
                   type: 'bar',
                   theme: 'dark',
