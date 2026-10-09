@@ -248,10 +248,11 @@ return {
         })
       }
     },
-    //导出指定点位为多列对齐Excel文件 (时间 + 每个因子一列, SpreadsheetML格式, Excel/WPS直接打开)
+    //导出指定点位为多列对齐Excel .xlsx (时间 + 每个因子一列, SheetJS生成真xlsx无格式警告)
     //独立按工具栏时间范围拉取数据, 无需先点查询; 行数无上限(大范围建议调大窗口)
     export_points_csv(points) {
       if (!points.length) return
+      if (!window.XLSX) { alert('Excel组件未就绪，请刷新页面重试'); return }
       const query = {
         start: this.dayjs(this.toolbar.value.start).toISOString(),
         end: this.dayjs(this.toolbar.value.end).toISOString(),
@@ -275,30 +276,22 @@ return {
         })
         times.sort((a, b) => a - b)
         if (!times.length) { alert('当前时间范围内没有数据'); return }
-        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        const cell = v => {
-          if (v === undefined || v === null || v === '') return '<Cell/>'
-          const n = Number(v)
-          if (!isNaN(n)) return '<Cell><Data ss:Type="Number">' + n + '</Data></Cell>'
-          return '<Cell><Data ss:Type="String">' + esc(this.fmt_point(v, null)) + '</Data></Cell>'
-        }
-        let rows = '<Row>' + points.map(p => '<Cell><Data ss:Type="String">' + esc((p.label || p.name) + (p.unit ? '(' + p.unit + ')' : '')) + '</Data></Cell>').join('') + '</Row>'
+        const aoa = [points.map(p => (p.label || p.name) + (p.unit ? '(' + p.unit + ')' : ''))]
         times.map(t => {
-          rows += '<Row><Cell><Data ss:Type="String">' + this.dayjs(t).format('YYYY-MM-DD HH:mm:ss') + '</Data></Cell>' +
-                  points.map(p => cell(table[t][p.name])).join('') + '</Row>'
+          aoa.push([this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')].concat(
+            points.map(p => {
+              const v = table[t][p.name]
+              if (v === undefined || v === null || v === '') return null
+              const n = Number(v)
+              return isNaN(n) ? String(v) : n
+            })
+          ))
         })
-        const xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>' +
-          '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
-          '<Worksheet ss:Name="数据"><Table>' + rows + '</Table></Worksheet></Workbook>'
-        const blob = new Blob([xml], {type: 'application/vnd.ms-excel'})
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = this.params.id + (points.length > 15 ? '-all' : '-points') + this.dayjs().format('-YYYYMMDDHHmmss') + '.xls'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        const ws = window.XLSX.utils.aoa_to_sheet(aoa)
+        ws['!cols'] = [{ wch: 20 }].concat(points.map(() => ({ wch: 14 })))
+        const wb = window.XLSX.utils.book_new()
+        window.XLSX.utils.book_append_sheet(wb, ws, '数据')
+        window.XLSX.writeFile(wb, this.params.id + (points.length > 15 ? '-all' : '-points') + this.dayjs().format('-YYYYMMDDHHmmss') + '.xlsx')
       })
     },
     //查询：一次性拉取全部因子——图表只画选中子集，数据表格按全部因子铺列(缺失留空)
