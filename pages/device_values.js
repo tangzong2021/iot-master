@@ -208,12 +208,12 @@ return {
       let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻（最新在最上，缺测留空；需要曲线请点「数据曲线」）</div>'
       html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
       html += '<thead><tr>' + th('数据时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
-      const max = 500
+      const max = 2000
       times.slice().reverse().slice(0, max).map(t => {
         html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(this.fmt_point(table[t][p.name], p))).join('') + '</tr>'
       })
       html += '</tbody></table>'
-      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">仅显示最新 ' + max + ' 行（共 ' + times.length + ' 行），请缩小时间范围查看更早数据</div>'
+      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">已显示最新 ' + max + ' 行（共 ' + times.length + ' 行），请缩小时间范围或导出CSV查看更早数据</div>'
       el.innerHTML = html
     }
   }
