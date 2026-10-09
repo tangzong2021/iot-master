@@ -98,7 +98,7 @@ return {
     },
     {
       type: 'button',
-      label: '导出CSV',
+      label: '导出Excel',
       action: {
         type: 'script',
         script(data, index) {
@@ -106,7 +106,7 @@ return {
           const selNames = (this.toolbar.value && this.toolbar.value.factor_sel) || []
           const points = (this.points || []).filter(p => selNames.includes(p.name))
           if (!points.length) {
-            alert('请先选择因子')
+            alert('请先选择因子（或直接用「导出全部Excel」）')
             return
           }
           this.export_points_csv(points)
@@ -115,7 +115,7 @@ return {
     },
     {
       type: 'button',
-      label: '导出全部CSV',
+      label: '导出全部Excel',
       action: {
         type: 'script',
         script(data, index) {
@@ -248,7 +248,8 @@ return {
         })
       }
     },
-    //导出指定点位为多列对齐CSV (时间 + 每个因子一列)
+    //导出指定点位为多列对齐Excel文件 (时间 + 每个因子一列, SpreadsheetML格式, Excel/WPS直接打开)
+    //独立按工具栏时间范围拉取数据, 无需先点查询; 行数无上限(大范围建议调大窗口)
     export_points_csv(points) {
       if (!points.length) return
       const query = {
@@ -260,7 +261,7 @@ return {
       Promise.all(points.map(p => {
         return new Promise(resolve => {
           this.request.get('device/' + this.params.id + '/history/' + p.name, query)
-            .subscribe(res => resolve(res.data || []))
+            .subscribe(res => resolve(res.data || []), () => resolve([]))
         })
       })).then(list => {
         const table = {}
@@ -274,18 +275,26 @@ return {
         })
         times.sort((a, b) => a - b)
         if (!times.length) { alert('当前时间范围内没有数据'); return }
-        const rows = ['时间,' + points.map(p => p.label + '(' + p.name + ')').join(',')]
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        const cell = v => {
+          if (v === undefined || v === null || v === '') return '<Cell/>'
+          const n = Number(v)
+          if (!isNaN(n)) return '<Cell><Data ss:Type="Number">' + n + '</Data></Cell>'
+          return '<Cell><Data ss:Type="String">' + esc(this.fmt_point(v, null)) + '</Data></Cell>'
+        }
+        let rows = '<Row>' + points.map(p => '<Cell><Data ss:Type="String">' + esc((p.label || p.name) + (p.unit ? '(' + p.unit + ')' : '')) + '</Data></Cell>').join('') + '</Row>'
         times.map(t => {
-          rows.push(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss') + ',' + points.map(p => {
-            const v = table[t][p.name]
-            return v === undefined ? '' : this.fmt_point(v, p)
-          }).join(','))
+          rows += '<Row><Cell><Data ss:Type="String">' + this.dayjs(t).format('YYYY-MM-DD HH:mm:ss') + '</Data></Cell>' +
+                  points.map(p => cell(table[t][p.name])).join('') + '</Row>'
         })
-        const blob = new Blob(['\ufeff' + rows.join('\n')], {type: 'text/csv;charset=utf-8'})
+        const xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>' +
+          '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' +
+          '<Worksheet ss:Name="数据"><Table>' + rows + '</Table></Worksheet></Workbook>'
+        const blob = new Blob([xml], {type: 'application/vnd.ms-excel'})
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = this.params.id + (points.length > 15 ? '-all' : '-points') + this.dayjs().format('-YYYYMMDDHHmmss') + '.csv'
+        a.download = this.params.id + (points.length > 15 ? '-all' : '-points') + this.dayjs().format('-YYYYMMDDHHmmss') + '.xls'
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
