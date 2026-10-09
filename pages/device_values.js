@@ -20,7 +20,7 @@ return {
       action: {
         type: 'script',
         script(data, index) {
-          this.load_table()
+          this.load_table(false)
         }
       }
     },
@@ -47,7 +47,7 @@ return {
             window: 5,
             unit: 'm'
           }
-          setTimeout(() => this.load_table(), 100)
+          setTimeout(() => this.load_table(false), 100)
         }
       }
     },
@@ -63,7 +63,7 @@ return {
             window: 10,
             unit: 's'
           }
-          setTimeout(() => this.load_table(), 100)
+          setTimeout(() => this.load_table(false), 100)
         }
       }
     },
@@ -79,7 +79,7 @@ return {
             window: 10,
             unit: 's'
           }
-          setTimeout(() => this.load_table(), 100)
+          setTimeout(() => this.load_table(false), 100)
         }
       }
     }
@@ -93,7 +93,7 @@ return {
       window: 5,
       unit: 'm'
     }
-    this.ensure_points(() => this.load_table())
+    this.ensure_points(() => this.load_table(true))
   },
   methods: {
     //按物模型点位精度格式化数值显示(未配precision或非数值则原样返回)
@@ -131,11 +131,11 @@ return {
     },
     //查询：拉取时间范围内全部因子，渲染数据表（最新时刻在最上面）
     //不传window=原始采样点查询，数据时间是设备真实采样时间（不随任何聚合设置变化）
-    load_table(useDefault) {
+    load_table(allowRetry) {
       const allPoints = this.points || []
       //工具栏表单值可能尚未同步(挂载时序)：start/end齐备才采用表单范围，否则用默认"过去1天"
       const fv = (this.toolbar && this.toolbar.value) || {}
-      const tv = (!useDefault && fv.start && fv.end) ? fv : (this.toolbarValue || {})
+      const tv = (fv.start && fv.end) ? fv : (this.toolbarValue || {})
       let s = this.dayjs(tv.start || this.dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss'))
       let e = this.dayjs(tv.end || this.dayjs().format('YYYY-MM-DD HH:mm:ss'))
       //起止颠倒自动交换；两端相等(空范围)自动补1小时，避免InfluxDB报empty range
@@ -159,9 +159,9 @@ return {
             .subscribe(res => resolve(res.data || []), () => resolve([]))
         })
       })).then(list => {
-        //全空且本次不是默认范围时，用默认"过去1天"自动重试一次(表单同步时序问题的兜底)
+        //仅挂载自动查询允许重试(表单未同步兜底); 用户手选范围的空结果如实显示, 不再偷换数据
         const total = list.reduce((n, r) => n + (r ? r.length : 0), 0)
-        if (total === 0 && !useDefault) {
+        if (total === 0 && allowRetry) {
           return this.load_table(true)
         }
         this.render_table(list, allPoints)
