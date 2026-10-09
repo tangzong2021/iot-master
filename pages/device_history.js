@@ -435,15 +435,15 @@ return {
       }
       const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
       const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
-      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻</div>'
+      let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻（最新在最上，超过' + max + ' 行仅显示最新部分，需查早数据请用导出CSV）</div>'
       html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
       html += '<thead><tr>' + th('时间') + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
-      const max = 500
+      const max = 2000
       times.slice(0, max).map(t => {
         html += '<tr>' + td(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(this.fmt_point(table[t][p.name], p))).join('') + '</tr>'
       })
       html += '</tbody></table>'
-      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">仅显示前 ' + max + ' 行（共 ' + times.length + ' 行），请用导出CSV获取全部数据</div>'
+      if (times.length > max) html += '<div style="text-align:center;color:#999;padding:8px">已显示最新 ' + max + ' 行（共 ' + times.length + ' 行），请缩小时间范围或用导出CSV获取全部数据</div>'
       el.innerHTML = html
     }
   }
