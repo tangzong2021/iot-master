@@ -51,9 +51,86 @@ func checkDeviceManage(ctx *gin.Context) bool {
 	return false
 }
 
+// parseVersion 将版本号解析为数字段："001.999.083" → [1,999,83]。
+// 含非数字段或空串返回 nil，表示无法数值比对（调用方退回字符串精确比较）
+func parseVersion(s string) []int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ".")
+	segs := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return nil
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return nil
+		}
+		segs = append(segs, n)
+	}
+	return segs
+}
+
+// semverCmp 数值段比较：a>b 返回 1，a<b 返回 -1，相等返回 0；缺段按 0 补齐
+func semverCmp(a, b []int) int {
+	n := len(a)
+	if len(b) > n {
+		n = len(b)
+	}
+	for i := 0; i < n; i++ {
+		x, y := 0, 0
+		if i < len(a) {
+			x = a[i]
+		}
+		if i < len(b) {
+			y = b[i]
+		}
+		if x != y {
+			if x > y {
+				return 1
+			}
+			return -1
+		}
+	}
+	return 0
+}
+
+// needUpgrade 判断目标固件版本是否比设备当前版本新（true=需要下发）。
+// 兼容三种情况，任一命中"不比设备新"即返回 false：
+//  1. 字符串一致
+//  2. 数值段一致或目标更低（忽略前导零/缺段，如 1.999.83 == 001.999.083）
+//  3. 合宙内核命名风格：目标首段≥1000 时视为"内核.脚本段1.脚本段3"（如
+//     2052.001.083 对应脚本版本 001.*.083），按(目标段2,目标段3)与(设备段1,设备段3)比对
+//
+// 两侧任一版本无法数值解析时，仅按字符串一致判定
+func needUpgrade(name, version string) bool {
+	if name == version {
+		return false
+	}
+	tgt, dev := parseVersion(name), parseVersion(version)
+	if tgt == nil || dev == nil {
+		return true // 无法比对，保持原下发行为
+	}
+	if semverCmp(tgt, dev) <= 0 {
+		return false
+	}
+	// 合宙风格目标（首段为内核版本号，如 2052.001.083）与脚本版本(001.999.083)同方案折算
+	if len(tgt) >= 3 && tgt[0] >= 1000 && len(dev) >= 3 {
+		if semverCmp([]int{tgt[1], tgt[2]}, []int{dev[0], dev[len(dev)-1]}) <= 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // firmwareUpgrade 设备侧升级检查接口
 // 兼容合宙 libfota2：设备请求 /api/site/firmware_upgrade?imei=&version=&project_key=
 // 需要升级：HTTP 200 + 固件二进制；无需升级/找不到：HTTP 300+（libfota2 视为已是最新）
+// 版本比对按 needUpgrade：目标固件不比设备 version 参数新时一律 304，
+// 否则设备会拉取同版固件重启后版本不变，随自检周期反复下载反复重启
 func firmwareUpgrade(ctx *gin.Context) {
 	imei := ctx.Query("imei")
 	version := strings.TrimSpace(ctx.Query("version"))
@@ -85,8 +162,10 @@ func firmwareUpgrade(ctx *gin.Context) {
 	name, _ := ver["name"].(string)
 	url, _ := ver["url"].(string)
 
-	//设备版本与最新版本名一致：无需升级
-	if version != "" && version == name {
+	//设备报了版本且目标不比它新：无需升级（防反复下载反复重启）
+	if version != "" && !needUpgrade(name, version) {
+		log.Info("firmware_upgrade 无需升级，跳过下发",
+			"imei", imei, "target", name, "device", version)
 		ctx.Status(http.StatusNotModified)
 		return
 	}
@@ -295,7 +374,8 @@ func deviceModelGet(ctx *gin.Context) {
 }
 
 // deviceUpgrade 单设备下发升级 POST device/:id/upgrade {version_id?}
-func deviceUpgrade(ctx *gin.Context) {	if !checkDeviceManage(ctx) {
+func deviceUpgrade(ctx *gin.Context) {
+	if !checkDeviceManage(ctx) {
 		api.Fail(ctx, "无权限：需要设备管理权限")
 		return
 	}
@@ -388,6 +468,11 @@ func sendUpgrade(deviceId, versionId string) (any, error) {
 		return nil, errors.New("固件文件为空，请先上传固件")
 	}
 	name, _ := ver["name"].(string)
+	//设备当前版本已不低于目标版本时拒绝下发（与自检接口同一比对规则），
+	//防止重复下发造成设备反复升级重启
+	if cur := deviceFirmware(d.Id); cur != "" && !needUpgrade(name, cur) {
+		return nil, errors.New("设备当前版本 " + cur + " 已不低于目标版本 " + name + "，无需升级")
+	}
 	vid, _ := ver["id"].(string)
 	msgId := xid.New().String()
 
