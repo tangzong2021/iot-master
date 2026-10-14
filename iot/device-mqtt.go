@@ -101,6 +101,25 @@ func mqttSubscribeDevice() {
 			}
 		}
 
+		//设备自报product_id与平台归属不一致：设备端已改绑产品，自动迁移到指定产品
+		//目标产品不存在时保持原归属并告警，防止设备端拼错产品ID后变成孤儿设备
+		if reg.ProductId != "" && d.ProductId != reg.ProductId {
+			if ptab, err := table.Get("product"); err == nil {
+				if p, err := ptab.Get(reg.ProductId, []string{"id"}); err == nil && p != nil {
+					if tab, err := table.Get("device"); err == nil {
+						if _, err := tab.UpdateById(reg.Id, map[string]any{"product_id": reg.ProductId}); err == nil {
+							d.ProductId = reg.ProductId
+							log.Info("device product migrated: ", reg.Id, " -> ", reg.ProductId)
+						} else {
+							log.Error("device product migrate fail: ", err)
+						}
+					}
+				} else {
+					log.Warn("register product not found, keep current product: ", reg.Id, " -> ", reg.ProductId)
+				}
+			}
+		}
+
 		//记录设备自报固件版本
 		if reg.Firmware != "" {
 			if tab, err := table.Get("device"); err == nil {
