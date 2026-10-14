@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/god-jason/iot-master/apis"
@@ -126,6 +128,28 @@ func needUpgrade(name, version string) bool {
 	return true
 }
 
+// fotaServeLast 每设备最近一次FOTA固件下发时刻（HTTP自检拉取与MQTT指令下发共用）。
+// 同一设备两次下发间隔必须大于10分钟：设备侧异常循环拉包时，服务器不再跟着反复下发大文件。
+// 内存态，平台重启后限频窗口清零（设备自检周期为小时级，重启丢失影响可忽略）
+var fotaServeMu sync.Mutex
+var fotaServeLast = map[string]time.Time{}
+
+const fotaServeInterval = 10 * time.Minute
+
+// fotaServeAllowed 判断该设备当前是否允许下发固件；允许则记录本次时刻并返回true
+func fotaServeAllowed(deviceId string) bool {
+	if deviceId == "" {
+		return true //无设备标识无法限频，保持放行
+	}
+	fotaServeMu.Lock()
+	defer fotaServeMu.Unlock()
+	if t, ok := fotaServeLast[deviceId]; ok && time.Since(t) < fotaServeInterval {
+		return false
+	}
+	fotaServeLast[deviceId] = time.Now()
+	return true
+}
+
 // firmwareUpgrade 设备侧升级检查接口
 // 兼容合宙 libfota2：设备请求 /api/site/firmware_upgrade?imei=&version=&project_key=
 // 需要升级：HTTP 200 + 固件二进制；无需升级/找不到：HTTP 300+（libfota2 视为已是最新）
@@ -166,6 +190,13 @@ func firmwareUpgrade(ctx *gin.Context) {
 	if version != "" && !needUpgrade(name, version) {
 		log.Info("firmware_upgrade 无需升级，跳过下发",
 			"imei", imei, "target", name, "device", version)
+		ctx.Status(http.StatusNotModified)
+		return
+	}
+
+	//限频：同一设备两次FOTA下发间隔必须大于10分钟
+	if !fotaServeAllowed(imei) {
+		log.Info("firmware_upgrade 距上次下发不足10分钟，跳过: ", imei)
 		ctx.Status(http.StatusNotModified)
 		return
 	}
@@ -472,6 +503,10 @@ func sendUpgrade(deviceId, versionId string) (any, error) {
 	//防止重复下发造成设备反复升级重启
 	if cur := deviceFirmware(d.Id); cur != "" && !needUpgrade(name, cur) {
 		return nil, errors.New("设备当前版本 " + cur + " 已不低于目标版本 " + name + "，无需升级")
+	}
+	//限频：同一设备两次FOTA下发间隔必须大于10分钟
+	if !fotaServeAllowed(d.Id) {
+		return nil, errors.New("距上次FOTA下发不足10分钟，请稍后再试")
 	}
 	vid, _ := ver["id"].(string)
 	msgId := xid.New().String()
