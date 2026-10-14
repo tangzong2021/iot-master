@@ -71,6 +71,83 @@ type ModelReport struct {
 	Content   []map[string]any `json:"content"`
 }
 
+// mergeModelGroups 将设备上报的模型点位合并进现有模型，返回分组格式 content。
+// 设备自报 content 为扁平点位数组（元素无 points 字段）时，前端数据页无法解析，
+// 在此规范化：同名点位保留原分组、属性以设备上报为准（拉取后展示效果以新模型为主）；
+// 设备新增点位归入"设备上报"组；现有模型中设备未上报的点位原样保留（非破坏）。
+// 上报内容已是分组格式时原样返回。
+func mergeModelGroups(old, reported []map[string]any) []map[string]any {
+	const extraGroup = "设备上报"
+	//已是分组格式：原样返回（展示效果以设备上报为准）
+	for _, g := range reported {
+		if _, ok := g["points"]; !ok {
+			break
+		}
+		return reported
+	}
+
+	type pointRef struct {
+		gi, pi int
+	}
+	type modelGroup struct {
+		name   string
+		points []map[string]any
+	}
+	var groups []modelGroup
+	index := map[string]pointRef{}
+	for _, g := range old {
+		pts, _ := g["points"].([]any)
+		gi := len(groups)
+		name, _ := g["name"].(string)
+		grp := modelGroup{name: name}
+		for _, p := range pts {
+			pm, ok := p.(map[string]any)
+			if !ok {
+				continue
+			}
+			pname, _ := pm["name"].(string)
+			if pname == "" {
+				continue
+			}
+			index[pname] = pointRef{gi, len(grp.points)}
+			grp.points = append(grp.points, pm)
+		}
+		groups = append(groups, grp)
+	}
+	extra := -1
+	for i, g := range groups {
+		if g.name == extraGroup {
+			extra = i
+			break
+		}
+	}
+
+	for _, p := range reported {
+		name, _ := p["name"].(string)
+		if name == "" {
+			continue
+		}
+		if ref, ok := index[name]; ok {
+			groups[ref.gi].points[ref.pi] = p //同名：原分组内更新属性
+			continue
+		}
+		if extra < 0 {
+			extra = len(groups)
+			groups = append(groups, modelGroup{name: extraGroup})
+		}
+		groups[extra].points = append(groups[extra].points, p)
+	}
+
+	var out []map[string]any
+	for _, g := range groups {
+		if len(g.points) == 0 {
+			continue
+		}
+		out = append(out, map[string]any{"name": g.name, "points": g.points})
+	}
+	return out
+}
+
 func mqttSubscribeDevice() {
 
 	//设备注册
@@ -195,13 +272,18 @@ func mqttSubscribeDevice() {
 		setting.Id = msg.ProductId
 		setting.Name = "model"
 		setting.Version = msg.Version
-		setting.Content = msg.Content
-		if has, _ := db.Engine().ID(schemas.PK{msg.ProductId, "model"}).Get(&ProductSetting{}); has {
+		var old ProductSetting
+		if has, _ := db.Engine().ID(schemas.PK{msg.ProductId, "model"}).Get(&old); has {
 			if _, err := db.Engine().ID(schemas.PK{msg.ProductId, "model"}).Delete(&ProductSetting{}); err != nil {
 				log.Error(err)
 				return
 			}
 		}
+		//设备上报的content可能为扁平点位数组(元素无points字段), 前端数据页只解析分组格式,
+		//原样入库会导致页面无点位可查; 保存前与现有模型按点位名合并规范化:
+		//同名点位保留原分组(属性以设备上报为准), 设备新增点位归入"设备上报"组,
+		//现有模型中设备未上报的点位保留(非破坏, 如设备漏报的采集配置)
+		setting.Content = mergeModelGroups(old.Content, msg.Content)
 		if _, err := db.Engine().Insert(&setting); err != nil {
 			log.Error(err)
 			return
