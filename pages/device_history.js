@@ -435,14 +435,17 @@ return {
         el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前时间范围内没有数据</div>'
         return
       }
-      const th = (t, sub) => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
+      //sticky在border-collapse:collapse下对所有浏览器均失效, 必须用separate;
+      //边框改为每格右+下, 外框由table补左+上, 避免separate下相邻边框加倍
+      const bd = 'border-right:1px solid #e8e8e8;border-bottom:1px solid #e8e8e8;'
+      const th = (t, sub) => '<th style="' + bd + 'background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0">' + t + (sub ? '<br><small style="color:#888">' + sub + '</small>' : '') + '</th>'
       //首列(时间)横向冻结: 横向滚动时时间列固定, 便于对照右侧因子数值
-      const thTime = () => '<th style="border:1px solid #e8e8e8;background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0;left:0;z-index:2">数据时间</th>'
-      const td = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
-      const tdTime = (v) => '<td style="border:1px solid #e8e8e8;padding:6px 12px;white-space:nowrap;position:sticky;left:0;background:#fff;z-index:1">' + (v === null || v === undefined ? '' : v) + '</td>'
+      const thTime = () => '<th style="' + bd + 'background:#fafafa;padding:8px 12px;white-space:nowrap;position:sticky;top:0;left:0;z-index:2">数据时间</th>'
+      const td = (v) => '<td style="' + bd + 'padding:6px 12px;white-space:nowrap">' + (v === null || v === undefined ? '' : v) + '</td>'
+      const tdTime = (v) => '<td style="' + bd + 'padding:6px 12px;white-space:nowrap;position:sticky;left:0;background:#fff;z-index:1">' + (v === null || v === undefined ? '' : v) + '</td>'
       const max = 2000
       let html = '<div style="color:#666;padding:4px 2px">设备: ' + (this.params.id || '-') + '　共 ' + times.length + ' 个时刻（最新在最上，超过' + max + ' 行仅显示最新部分，需查早数据请用导出CSV）</div>'
-      html += '<table style="border-collapse:collapse;width:100%;font-size:13px;text-align:center">'
+      html += '<table style="border-collapse:separate;border-spacing:0;border-top:1px solid #e8e8e8;border-left:1px solid #e8e8e8;width:100%;font-size:13px;text-align:center">'
       html += '<thead><tr>' + thTime() + points.map(p => th(p.label || p.name, p.unit || '')).join('') + '</tr></thead><tbody>'
       times.slice(0, max).map(t => {
         html += '<tr>' + tdTime(this.dayjs(t).format('YYYY-MM-DD HH:mm:ss')) + points.map(p => td(this.fmt_point(table[t][p.name], p))).join('') + '</tr>'
