@@ -5,7 +5,7 @@ FROM node:20-alpine AS web
 
 WORKDIR /web
 
-COPY package.json angular.json tsconfig.json tsconfig.app.json ./
+COPY package.json package-lock.json angular.json tsconfig.json tsconfig.app.json ./
 COPY src ./src
 COPY public ./public
 RUN (npm ci --no-audit --no-fund || npm install --no-audit --no-fund) && npx ng build
