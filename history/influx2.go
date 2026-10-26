@@ -16,7 +16,6 @@ import (
 )
 
 var client influxdb2.Client
-var writer api.WriteAPI
 var writerBlocking api.WriteAPIBlocking
 var reader api.QueryAPI
 
