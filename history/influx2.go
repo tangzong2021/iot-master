@@ -31,6 +31,12 @@ const (
 	retryQueueFile     = "/app-data/influx_retry_queue.jsonl"
 	retryQueueMaxBytes = 50 * 1024 * 1024
 	retryInterval      = 15 * time.Second
+
+	// 预写日志(WAL): 收到消息立即落盘, 再写InfluxDB, 成功后由后台清扫
+	// 覆盖"平台进程崩溃在写库之前"的毫秒级窗口, 与落盘队列共同构成 at-least-once
+	walFile     = "/app-data/influx_wal.jsonl"
+	walMaxBytes = 100 * 1024 * 1024
+	walInterval = 30 * time.Second
 )
 
 var queueMutex sync.Mutex
@@ -177,12 +183,104 @@ func queueAppend(item *queueItem) {
 	_, _ = f.Write(append(data, '\n'))
 }
 
-// retryLoop 后台续传: 定期重试队列中未写入成功的数据
+// retryLoop 后台续传: 定期重试队列中未写入成功的数据 + 清扫WAL
 func retryLoop() {
 	time.Sleep(10 * time.Second) //等平台启动稳定
+	sweepWAL()                   //启动时先重放上次未清空的WAL
+	lastWal := time.Now()
 	for {
 		retryQueueOnce()
+		if time.Since(lastWal) >= walInterval {
+			sweepWAL()
+			lastWal = time.Now()
+		}
 		time.Sleep(retryInterval)
+	}
+}
+
+// AppendWAL 预写日志: 在写InfluxDB之前先把数据落盘
+// 进程崩溃/重启后由 sweepWAL 重放, 保证数据不丢(重复写入InfluxDB幂等, 同时间戳覆盖)
+func AppendWAL(table, id string, timestamp int64, values map[string]any) {
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	//WAL过大时丢弃最旧一半, 防止磁盘打满
+	if fi, err := os.Stat(walFile); err == nil && fi.Size() > walMaxBytes {
+		if data, err := os.ReadFile(walFile); err == nil {
+			var valid [][]byte
+			for _, l := range bytes.Split(data, []byte("\n")) {
+				if len(bytes.TrimSpace(l)) > 0 {
+					cp := make([]byte, len(l))
+					copy(cp, l)
+					valid = append(valid, cp)
+				}
+			}
+			keep := valid[len(valid)/2:]
+			_ = os.WriteFile(walFile, bytes.Join(keep, []byte("\n")), 0644)
+			log.Error("influx WAL exceed limit, dropped oldest ", len(valid)-len(keep))
+		}
+	}
+
+	data, err := json.Marshal(&queueItem{Table: table, Id: id, Timestamp: timestamp, Values: values})
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(walFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Error("influx WAL open fail: ", err)
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(data, '\n'))
+}
+
+// sweepWAL 把WAL中能写入InfluxDB的数据清掉, 失败的保留等待下次
+// 全部成功则删除文件(WAL只保留最近一个清扫周期的数据, 体积很小)
+func sweepWAL() {
+	if writerBlocking == nil {
+		return
+	}
+
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	data, err := os.ReadFile(walFile)
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+
+	var remain [][]byte
+	okCount := 0
+	dupCount := 0
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var item queueItem
+		if json.Unmarshal(line, &item) != nil {
+			continue //损坏行丢弃
+		}
+		pt := buildPoint(item.Table, item.Id, item.Timestamp, item.Values)
+		if pt == nil {
+			continue
+		}
+		if err := writerBlocking.WritePoint(context.Background(), pt); err == nil {
+			okCount++ //写入成功(多为重复写入, InfluxDB同时间戳覆盖, 幂等)
+			dupCount++
+			continue
+		}
+		cp := make([]byte, len(line))
+		copy(cp, line)
+		remain = append(remain, cp)
+	}
+
+	if len(remain) == 0 {
+		_ = os.Remove(walFile)
+	} else {
+		_ = os.WriteFile(walFile, bytes.Join(remain, []byte("\n")), 0644)
+	}
+	if okCount > 0 {
+		log.Info("influx WAL swept ", okCount, " (replay/clean), remain ", len(remain))
 	}
 }
 

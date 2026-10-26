@@ -104,6 +104,9 @@ func (d *Device) PutValuesTime(ts int64, values map[string]any) {
 		}
 	}
 
+	//前置WAL落盘: 写库之前先持久化, 保证进程崩溃/写库失败都不丢数据(重启后自动重放)
+	history.AppendWAL(d.ProductId, d.Id, ts, values)
+
 	//入历史数据库
 	err := history.Write(d.ProductId, d.Id, ts, values)
 	if err != nil {
