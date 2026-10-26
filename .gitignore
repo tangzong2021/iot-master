@@ -31,7 +31,7 @@ go.work.sum
 /iot-master.yaml
 /vendor
 /node_modules
-/package-lock.json
+# /package-lock.json  (提交lock保证CI确定性安装, 原gitignore导致npm install每次重解析触发edgesOut崩溃)
 /.angular
 /2026
 /example

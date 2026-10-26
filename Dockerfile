@@ -8,7 +8,7 @@ WORKDIR /web
 COPY package.json angular.json tsconfig.json tsconfig.app.json ./
 COPY src ./src
 COPY public ./public
-RUN npm install --no-audit --no-fund && npx ng build
+RUN (npm ci --no-audit --no-fund || npm install --no-audit --no-fund) && npx ng build
 
 FROM golang:1.25-alpine AS builder
 
