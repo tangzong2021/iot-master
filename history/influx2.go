@@ -17,6 +17,7 @@ import (
 
 var client influxdb2.Client
 var writer api.WriteAPI
+var writerBlocking api.WriteAPIBlocking
 var reader api.QueryAPI
 
 type Point struct {
@@ -30,21 +31,10 @@ func Startup() error {
 	}
 
 	client = influxdb2.NewClient(config.GetString(MODULE, "url"), config.GetString(MODULE, "token"))
-	writer = client.WriteAPI(config.GetString(MODULE, "org"), config.GetString(MODULE, "bucket"))
-	//writer = client.WriteAPIBlocking(config.GetString(MODULE, "org"), config.GetString(MODULE, "bucket")) //阻塞接口不返回错误，坑爹
+	//同步阻塞写入器: 异步WriteAPI在网络抖动后会让批次卡死/过期丢弃(实测丢数据),
+	//改为逐点同步写入+失败重试, 保证数据不丢(写入量小, 性能足够)
+	writerBlocking = client.WriteAPIBlocking(config.GetString(MODULE, "org"), config.GetString(MODULE, "bucket"))
 	reader = client.QueryAPI(config.GetString(MODULE, "org"))
-	//
-	//if config.GetBool(MODULE, "batch") {
-	//	writer.EnableBatching()
-	//}
-
-	errorsCh := writer.Errors()
-	go func() {
-		for err := range errorsCh {
-			//fmt.Printf("write error: %s\n", err.Error())
-			log.Error("influxdb error: " + err.Error())
-		}
-	}()
 
 	return nil
 }
@@ -61,7 +51,7 @@ func Client() influxdb2.Client {
 func Write(table, id string, timestamp int64, values map[string]any) error {
 	//log.Info("influxdb write", table, id, timestamp, values)
 
-	if writer == nil {
+	if writerBlocking == nil {
 		return nil
 	}
 
@@ -102,8 +92,17 @@ func Write(table, id string, timestamp int64, values map[string]any) error {
 	}
 	//log.Info("influxdb write2", table, id, vs)
 
-	writer.WritePoint(write.NewPoint(table, map[string]string{"id": id}, vs, time.UnixMilli(timestamp)))
-	return nil
+	pt := write.NewPoint(table, map[string]string{"id": id}, vs, time.UnixMilli(timestamp))
+	//同步写入, 失败重试3次(间隔递增), 避免网络抖动导致数据丢失
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = writerBlocking.WritePoint(context.Background(), pt); err == nil {
+			return nil
+		}
+		log.Error("influxdb write retry ", i+1, ": ", err)
+		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+	}
+	return err
 }
 
 func Query(table, id, name, start, end, window, method string) ([]*Point, error) {
