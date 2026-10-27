@@ -253,11 +253,22 @@ return {
     export_points_csv(points) {
       if (!points.length) return
       if (!window.XLSX) { alert('Excel组件未就绪，请刷新页面重试'); return }
+      //窗口填0(或清空)=导出原始采样点(不聚合, 保留设备真实上报时刻); 大于0=按窗口聚合
+      const win = Number(this.toolbar.value.window)
       const query = {
         start: this.dayjs(this.toolbar.value.start).toISOString(),
-        end: this.dayjs(this.toolbar.value.end).toISOString(),
-        window: this.toolbar.value.window + this.toolbar.value.unit,
-        method: this.toolbar.value.method
+        end: this.dayjs(this.toolbar.value.end).toISOString()
+      }
+      if (win > 0) {
+        query.window = win + this.toolbar.value.unit
+        query.method = this.toolbar.value.method
+      } else if (win === 0) {
+        const days = this.dayjs(this.toolbar.value.end).diff(this.dayjs(this.toolbar.value.start), 'day')
+        if (days > 7 && !confirm('窗口填 0 = 导出原始采样点（不聚合）。\n当前范围约 ' + days + ' 天，数据量可能达数万至数十万行，导出耗时较长、浏览器可能变慢。\n确认继续？')) return
+      } else {
+        //窗口值无效(表单未初始化等): 保守按 5 分钟聚合, 避免误拉海量原始点
+        query.window = '5m'
+        query.method = this.toolbar.value.method
       }
       Promise.all(points.map(p => {
         return new Promise(resolve => {
@@ -307,11 +318,22 @@ return {
         this.notification.info('提示', '开始时间晚于结束时间，已自动交换')
       }
       if (!e.isAfter(s)) e = s.add(1, 'hour')
+      //窗口填0(或清空)=查询原始采样点; 大于0=按窗口聚合
+      const win = Number(this.toolbar.value.window)
       const query = {
         start: s.toISOString(),
-        end: e.toISOString(),
-        window: this.toolbar.value.window + this.toolbar.value.unit,
-        method: this.toolbar.value.method
+        end: e.toISOString()
+      }
+      if (win > 0) {
+        query.window = win + this.toolbar.value.unit
+        query.method = this.toolbar.value.method
+      } else if (win === 0) {
+        const days = e.diff(s, 'day')
+        if (days > 3 && !confirm('窗口填 0 = 查询原始采样点（不聚合）。\n当前范围约 ' + days + ' 天，数据量大，图表可能卡顿。\n确认继续？')) return
+      } else {
+        //窗口值无效(表单未初始化等): 保守按 5 分钟聚合, 避免误拉海量原始点
+        query.window = '5m'
+        query.method = this.toolbar.value.method
       }
       if (!allPoints.length) {
         const text = '该产品没有物模型点位'
