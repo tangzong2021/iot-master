@@ -1,11 +1,15 @@
 package history
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/god-jason/iot-master/pkg/config"
@@ -16,8 +20,33 @@ import (
 )
 
 var client influxdb2.Client
-var writer api.WriteAPI
+var writerBlocking api.WriteAPIBlocking
 var reader api.QueryAPI
+
+// 写入失败落盘队列: 保证 InfluxDB 故障/字段类型冲突/网络中断时不丢数据
+// - 写入重试3次仍失败 → 追加一行JSON到队列文件(位于PVC持久卷)
+// - 后台协程每15秒重试, 成功后删除; 重启后自动续传
+// - 队列超过50MB时丢弃最旧一半, 防止磁盘打满
+const (
+	retryQueueFile     = "/app-data/influx_retry_queue.jsonl"
+	retryQueueMaxBytes = 50 * 1024 * 1024
+	retryInterval      = 15 * time.Second
+
+	// 预写日志(WAL): 收到消息立即落盘, 再写InfluxDB, 成功后由后台清扫
+	// 覆盖"平台进程崩溃在写库之前"的毫秒级窗口, 与落盘队列共同构成 at-least-once
+	walFile     = "/app-data/influx_wal.jsonl"
+	walMaxBytes = 100 * 1024 * 1024
+	walInterval = 30 * time.Second
+)
+
+var queueMutex sync.Mutex
+
+type queueItem struct {
+	Table     string         `json:"table"`
+	Id        string         `json:"id"`
+	Timestamp int64          `json:"ts"`
+	Values    map[string]any `json:"values"`
+}
 
 type Point struct {
 	Value any   `json:"value"`
@@ -29,26 +58,14 @@ func Startup() error {
 		return nil
 	}
 
-	//高频入库(秒级)场景: 批量上限500点、5秒刷写一次(默认1秒), 合并请求降低InfluxDB压力;
-	//代价是数据最多延迟5秒可查(实时值卡片走内存缓存不受影响)
-	wOpts := influxdb2.DefaultOptions()
-	wOpts.SetBatchSize(500)
-	wOpts.SetFlushInterval(5000)
-	client = influxdb2.NewClientWithOptions(config.GetString(MODULE, "url"), config.GetString(MODULE, "token"), wOpts)
-	//writer = client.WriteAPIBlocking(config.GetString(MODULE, "org"), config.GetString(MODULE, "bucket")) //阻塞接口不返回错误，坑爹
+	client = influxdb2.NewClient(config.GetString(MODULE, "url"), config.GetString(MODULE, "token"))
+	//同步阻塞写入器: 异步WriteAPI在网络抖动后会让批次卡死/过期丢弃(实测丢数据),
+	//改为逐点同步写入+失败重试, 保证数据不丢(写入量小, 性能足够)
+	writerBlocking = client.WriteAPIBlocking(config.GetString(MODULE, "org"), config.GetString(MODULE, "bucket"))
 	reader = client.QueryAPI(config.GetString(MODULE, "org"))
-	//
-	//if config.GetBool(MODULE, "batch") {
-	//	writer.EnableBatching()
-	//}
 
-	errorsCh := writer.Errors()
-	go func() {
-		for err := range errorsCh {
-			//fmt.Printf("write error: %s\n", err.Error())
-			log.Error("influxdb error: " + err.Error())
-		}
-	}()
+	//启动落盘队列续传协程(含重启后恢复未写入的数据)
+	go retryLoop()
 
 	return nil
 }
@@ -62,13 +79,8 @@ func Client() influxdb2.Client {
 	return client
 }
 
-func Write(table, id string, timestamp int64, values map[string]any) error {
-	//log.Info("influxdb write", table, id, timestamp, values)
-
-	if writer == nil {
-		return nil
-	}
-
+// buildPoint 把业务值转换为InfluxDB点(过滤无效字段与NaN/Inf)
+func buildPoint(table, id string, timestamp int64, values map[string]any) *write.Point {
 	vs := make(map[string]any)
 	for k, v := range values {
 		k = strings.TrimSpace(k)
@@ -101,13 +113,227 @@ func Write(table, id string, timestamp int64, values map[string]any) error {
 		}
 	}
 	if len(vs) == 0 {
-		log.Info("nothing to write", values, vs)
 		return nil
 	}
-	//log.Info("influxdb write2", table, id, vs)
+	return write.NewPoint(table, map[string]string{"id": id}, vs, time.UnixMilli(timestamp))
+}
 
-	writer.WritePoint(write.NewPoint(table, map[string]string{"id": id}, vs, time.UnixMilli(timestamp)))
-	return nil
+func Write(table, id string, timestamp int64, values map[string]any) error {
+	//log.Info("influxdb write", table, id, timestamp, values)
+
+	if writerBlocking == nil {
+		return nil
+	}
+
+	pt := buildPoint(table, id, timestamp, values)
+	if pt == nil {
+		log.Info("nothing to write", values)
+		return nil
+	}
+
+	//同步写入, 失败重试3次(间隔递增), 避免网络抖动导致数据丢失
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = writerBlocking.WritePoint(context.Background(), pt); err == nil {
+			return nil
+		}
+		log.Error("influxdb write retry ", i+1, ": ", err)
+		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+	}
+
+	//三次重试仍失败: 落盘持久化, 由后台协程续传, 确保数据不丢
+	queueAppend(&queueItem{Table: table, Id: id, Timestamp: timestamp, Values: values})
+	log.Error("influxdb write failed, queued to disk: ", err)
+	return err
+}
+
+// queueAppend 追加一条待重试数据到队列文件
+func queueAppend(item *queueItem) {
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	//队列过大时丢弃最旧一半, 防止磁盘打满
+	if fi, err := os.Stat(retryQueueFile); err == nil && fi.Size() > retryQueueMaxBytes {
+		if data, err := os.ReadFile(retryQueueFile); err == nil {
+			var valid [][]byte
+			for _, l := range bytes.Split(data, []byte("\n")) {
+				if len(bytes.TrimSpace(l)) > 0 {
+					cp := make([]byte, len(l))
+					copy(cp, l)
+					valid = append(valid, cp)
+				}
+			}
+			keep := valid[len(valid)/2:]
+			_ = os.WriteFile(retryQueueFile, bytes.Join(keep, []byte("\n")), 0644)
+			log.Error("influx retry queue exceed limit, dropped oldest ", len(valid)-len(keep))
+		}
+	}
+
+	data, err := json.Marshal(item)
+	if err != nil {
+		log.Error("influx retry queue marshal fail: ", err)
+		return
+	}
+	f, err := os.OpenFile(retryQueueFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Error("influx retry queue open fail: ", err)
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(data, '\n'))
+}
+
+// retryLoop 后台续传: 定期重试队列中未写入成功的数据 + 清扫WAL
+func retryLoop() {
+	time.Sleep(10 * time.Second) //等平台启动稳定
+	sweepWAL()                   //启动时先重放上次未清空的WAL
+	lastWal := time.Now()
+	for {
+		retryQueueOnce()
+		if time.Since(lastWal) >= walInterval {
+			sweepWAL()
+			lastWal = time.Now()
+		}
+		time.Sleep(retryInterval)
+	}
+}
+
+// AppendWAL 预写日志: 在写InfluxDB之前先把数据落盘
+// 进程崩溃/重启后由 sweepWAL 重放, 保证数据不丢(重复写入InfluxDB幂等, 同时间戳覆盖)
+func AppendWAL(table, id string, timestamp int64, values map[string]any) {
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	//WAL过大时丢弃最旧一半, 防止磁盘打满
+	if fi, err := os.Stat(walFile); err == nil && fi.Size() > walMaxBytes {
+		if data, err := os.ReadFile(walFile); err == nil {
+			var valid [][]byte
+			for _, l := range bytes.Split(data, []byte("\n")) {
+				if len(bytes.TrimSpace(l)) > 0 {
+					cp := make([]byte, len(l))
+					copy(cp, l)
+					valid = append(valid, cp)
+				}
+			}
+			keep := valid[len(valid)/2:]
+			_ = os.WriteFile(walFile, bytes.Join(keep, []byte("\n")), 0644)
+			log.Error("influx WAL exceed limit, dropped oldest ", len(valid)-len(keep))
+		}
+	}
+
+	data, err := json.Marshal(&queueItem{Table: table, Id: id, Timestamp: timestamp, Values: values})
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(walFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Error("influx WAL open fail: ", err)
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(data, '\n'))
+}
+
+// sweepWAL 把WAL中能写入InfluxDB的数据清掉, 失败的保留等待下次
+// 全部成功则删除文件(WAL只保留最近一个清扫周期的数据, 体积很小)
+func sweepWAL() {
+	if writerBlocking == nil {
+		return
+	}
+
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	data, err := os.ReadFile(walFile)
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+
+	var remain [][]byte
+	okCount := 0
+	dupCount := 0
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var item queueItem
+		if json.Unmarshal(line, &item) != nil {
+			continue //损坏行丢弃
+		}
+		pt := buildPoint(item.Table, item.Id, item.Timestamp, item.Values)
+		if pt == nil {
+			continue
+		}
+		if err := writerBlocking.WritePoint(context.Background(), pt); err == nil {
+			okCount++ //写入成功(多为重复写入, InfluxDB同时间戳覆盖, 幂等)
+			dupCount++
+			continue
+		}
+		cp := make([]byte, len(line))
+		copy(cp, line)
+		remain = append(remain, cp)
+	}
+
+	if len(remain) == 0 {
+		_ = os.Remove(walFile)
+	} else {
+		_ = os.WriteFile(walFile, bytes.Join(remain, []byte("\n")), 0644)
+	}
+	if okCount > 0 {
+		log.Info("influx WAL swept ", okCount, " (replay/clean), remain ", len(remain))
+	}
+}
+
+// retryQueueOnce 尝试把队列中的全部数据写入, 成功的移除, 失败的保留等下次
+func retryQueueOnce() {
+	if writerBlocking == nil {
+		return
+	}
+
+	queueMutex.Lock()
+	defer queueMutex.Unlock()
+
+	data, err := os.ReadFile(retryQueueFile)
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+
+	var remain [][]byte
+	okCount := 0
+	failCount := 0
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var item queueItem
+		if json.Unmarshal(line, &item) != nil {
+			continue //损坏行直接丢弃
+		}
+		pt := buildPoint(item.Table, item.Id, item.Timestamp, item.Values)
+		if pt != nil {
+			if err := writerBlocking.WritePoint(context.Background(), pt); err == nil {
+				okCount++
+				continue
+			}
+		}
+		failCount++
+		cp := make([]byte, len(line))
+		copy(cp, line)
+		remain = append(remain, cp)
+	}
+
+	//写回剩余(全部成功则删除文件)
+	if len(remain) == 0 {
+		_ = os.Remove(retryQueueFile)
+	} else {
+		_ = os.WriteFile(retryQueueFile, bytes.Join(remain, []byte("\n")), 0644)
+	}
+	if okCount > 0 {
+		log.Info("influx retry queue flushed ", okCount, ", remain ", len(remain))
+	}
+	if failCount > 0 {
+		log.Error("influx retry queue still failing ", failCount, ", will retry in ", retryInterval)
+	}
 }
 
 func Query(table, id, name, start, end, window, method string) ([]*Point, error) {
