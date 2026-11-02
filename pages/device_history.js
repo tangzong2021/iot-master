@@ -439,17 +439,18 @@ return {
         el.innerHTML = '<div style="text-align:center;color:#999;padding:16px">当前产品没有物模型点位</div>'
         return
       }
-      //按时间戳对齐合并
+      //按时间戳对齐合并(按秒对齐: 同一秒多条历史数据归为一行, 后写覆盖先写)
       const table = {}
       const times = []
       list.forEach((records, idx) => {
         const name = points[idx].name
         records.map(r => {
-          if (table[r.time] === undefined) {
-            table[r.time] = {}
-            times.push(r.time)
+          const sec = Math.floor(r.time / 1000) * 1000
+          if (table[sec] === undefined) {
+            table[sec] = {}
+            times.push(sec)
           }
-          table[r.time][name] = r.value
+          table[sec][name] = r.value
         })
       })
       times.sort((a, b) => a - b)
