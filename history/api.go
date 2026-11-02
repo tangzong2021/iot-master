@@ -31,14 +31,16 @@ func deviceHistory(ctx *gin.Context) {
 	key := ctx.Param("point")
 	start := ctx.DefaultQuery("start", "-5h")
 	end := ctx.DefaultQuery("end", "0h")
-	window := ctx.Query("window") //留空=原始采样点(不聚合, 时间为设备真实采样时间)
+	window := ctx.Query("window")                //留空=原始采样点(不聚合, 时间为设备真实采样时间)
 	method := ctx.DefaultQuery("method", "last") //last
 
-	points, err := Query(dev.ProductId, dev.Id, key, start, end, window, method)
+	//不带_field过滤一次取全部因子后提取目标因子:
+	//规避influxdb 2.7长时间范围+字段过滤静默返回空的缺陷
+	all, err := QueryFields(dev.ProductId, dev.Id, key, start, end, window, method)
 	if err != nil {
 		api.Error(ctx, err)
 		return
 	}
 
-	api.OK(ctx, points)
+	api.OK(ctx, all)
 }
