@@ -10,11 +10,11 @@ import (
 	"github.com/god-jason/iot-master/pkg/config"
 )
 
-// QueryFields 查询设备全部因子(不带_field过滤)后按因子名分组, 返回目标因子的点位。
-// 规避influxdb 2.7.12实测缺陷: aggregateWindow在长查询范围(数小时以上)会静默返回空结果
-// (短范围正常, 且无报错; 同flux经CLI/HTTP直查行为也不一致)。
-// 处理: 按2小时分片逐段查询后合并——分片边界与聚合窗口边界对齐(UTC偶数小时),
-// 不产生跨片截断的窗口; 各分片结果按时间排序合并。
+// QueryFields 查询目标因子的历史点位。
+// 内部不带_field过滤一次取全部因子后按因子名分组提取, 规避influxdb 2.7.12实测缺陷:
+// aggregateWindow在长查询范围(数小时以上)会静默返回空结果(短范围正常、无报错,
+// 同flux经CLI/HTTP/Go客户端行为也不一致); 处理: 按2小时分片逐段查询后合并——
+// 分片边界与聚合窗口边界对齐(UTC偶数小时), 不产生跨片截断的窗口; 各分片按时间排序合并。
 // 附带收益: 不带字段过滤一次取全部因子, 前端逐因子查询合并为单次influxdb往返
 func QueryFields(table, id, name, start, end, window, method string) ([]*Point, error) {
 	if reader == nil {
@@ -57,11 +57,7 @@ func QueryFields(table, id, name, start, end, window, method string) ([]*Point, 
 	return pts, nil
 }
 
-// rec_field 从点位值推断因子名(合并分片时需要): Point不含字段名,
-// 因此合并逻辑放在查询循环内按result.Record().Field()分组, 这里仅排序用
-func rec_field(p *Point) string { return "" }
-
-// queryChunk 查询单个时间分片(不带_field过滤, 返回全因子点位并按因子名分组)
+// queryChunk 查询单个时间分片(不带_field过滤, 返回全部因子点位并按因子名分组)
 func queryChunk(table, id, start, end, window, method string) (map[string][]*Point, error) {
 	bucket := config.GetString(MODULE, "bucket")
 
