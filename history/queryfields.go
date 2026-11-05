@@ -32,6 +32,19 @@ func QueryFields(table, id, name, start, end, window, method string) ([]*Point, 
 		return all[name], nil
 	}
 
+	all, err := queryAllChunked(table, id, st, en, window, method)
+	if err != nil {
+		return nil, err
+	}
+
+	//目标因子按时间升序排序后返回
+	pts := all[name]
+	sort.Slice(pts, func(i, j int) bool { return pts[i].Time < pts[j].Time })
+	return pts, nil
+}
+
+// queryAllChunked 按2小时分片查询全因子并合并(边界与UTC偶数小时对齐, 不产生跨片截断窗口)
+func queryAllChunked(table, id string, st, en time.Time, window, method string) (map[string][]*Point, error) {
 	fields := make(map[string][]*Point)
 	const chunk = 2 * time.Hour
 	for cur := st; cur.Before(en); {
@@ -50,11 +63,7 @@ func QueryFields(table, id, name, start, end, window, method string) ([]*Point, 
 		}
 		cur = next
 	}
-
-	//目标因子按时间升序排序后返回
-	pts := fields[name]
-	sort.Slice(pts, func(i, j int) bool { return pts[i].Time < pts[j].Time })
-	return pts, nil
+	return fields, nil
 }
 
 // queryChunk 查询单个时间分片(不带_field过滤, 返回全部因子点位并按因子名分组)

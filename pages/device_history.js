@@ -349,12 +349,10 @@ return {
         this.render_data_table([], [], [])
         return
       }
-      Promise.all(allPoints.map(p => {
-        return new Promise(resolve => {
-          this.request.get('device/' + this.params.id + '/history/' + p.name, query)
-            .subscribe(res => resolve(res.data || []))
-        })
-      })).then(list => {
+      //一次请求拉全部因子(后端单次influxdb查询按因子分组返回), 避免逐因子N倍查询放大
+      this.request.get('device/' + this.params.id + '/history-all', query).subscribe(res => {
+        const all = res.data || {}
+        const list = allPoints.map(p => all[p.name] || [])
         // --- 曲线：仅绘制选中的因子 ---
         if (!selPoints.length) {
           const text = '未选择因子，仅显示下方数据表格；选择因子后点「查询」绘制曲线'
