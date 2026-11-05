@@ -43,14 +43,15 @@ func cachedQueryFields(table, id, name, start, end, window, method string) ([]*P
 	if len(pcData) >= pcLimit {
 		pcData = map[string]pointCacheEntry{} //超限直接清空(简单防膨胀)
 	}
-	pcMu.Unlock()
 
+	//单飞: 查询全程持锁, 并发同键请求(前端一次拉N个因子)只穿透一次influxdb,
+	//其余等待后直接命中缓存; 全局串行化也顺带保护influxdb不被历史查询突发打满
 	all, err := QueryFields(table, id, name, start, end, window, method)
 	if err != nil {
+		pcMu.Unlock()
 		return nil, err
 	}
 
-	pcMu.Lock()
 	pcData[key] = pointCacheEntry{points: all, exp: time.Now().Add(pcTTL)}
 	pcMu.Unlock()
 	return all, nil
