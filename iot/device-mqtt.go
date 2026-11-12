@@ -71,49 +71,67 @@ type ModelReport struct {
 	Content   []map[string]any `json:"content"`
 }
 
-// mergeModelGroups 将设备上报的模型点位合并进现有模型，返回分组格式 content。
-// 设备自报 content 为扁平点位数组（元素无 points 字段）时，前端数据页无法解析，
-// 在此规范化：同名点位保留原分组、属性以设备上报为准（拉取后展示效果以新模型为主）；
-// 设备新增点位归入"设备上报"组；现有模型中设备未上报的点位原样保留（非破坏）。
-// 上报内容已是分组格式时原样返回。
+// mergeModelGroups 将设备上报的模型点位规范化为分组格式。
+// 语义: 模型完全以设备上报为准(增/删/改全部生效)——设备删掉的点位平台上同步删除,
+// 否则改完模型重新获取后平台仍显示旧点位, 用户无法通过设备端维护模型。
+// 分组: 设备上报若已是分组格式则原样保存; 若为扁平点位数组, 沿用现有模型中同名点位
+// 所属分组以便展示稳定, 新增点位归入"设备上报"组。
 func mergeModelGroups(old, reported []map[string]any) []map[string]any {
 	const extraGroup = "设备上报"
-	//已是分组格式：原样返回（展示效果以设备上报为准）
+	//已是分组格式：原样返回
+	isGrouped := len(reported) > 0
 	for _, g := range reported {
 		if _, ok := g["points"]; !ok {
+			isGrouped = false
 			break
 		}
+	}
+	if isGrouped {
 		return reported
 	}
 
-	type pointRef struct {
-		gi, pi int
+	//统计设备本次上报的点位名(上报列表即最终点位集合)
+	reportedSet := make(map[string]bool, len(reported))
+	for _, p := range reported {
+		if name, _ := p["name"].(string); name != "" {
+			reportedSet[name] = true
+		}
 	}
+
+	//沿用旧分组顺序组织点位: 只保留设备仍在报的点位, 组内保持旧顺序
 	type modelGroup struct {
 		name   string
 		points []map[string]any
 	}
 	var groups []modelGroup
-	index := map[string]pointRef{}
+	placed := make(map[string]bool, len(reported))
 	for _, g := range old {
 		pts, _ := g["points"].([]any)
-		gi := len(groups)
-		name, _ := g["name"].(string)
-		grp := modelGroup{name: name}
+		gname, _ := g["name"].(string)
+		grp := modelGroup{name: gname}
 		for _, p := range pts {
 			pm, ok := p.(map[string]any)
 			if !ok {
 				continue
 			}
-			pname, _ := pm["name"].(string)
-			if pname == "" {
+			name, _ := pm["name"].(string)
+			if name == "" || !reportedSet[name] || placed[name] {
 				continue
 			}
-			index[pname] = pointRef{gi, len(grp.points)}
+			//属性以设备上报为准
+			for _, rp := range reported {
+				if rn, _ := rp["name"].(string); rn == name {
+					pm = rp
+					break
+				}
+			}
+			placed[name] = true
 			grp.points = append(grp.points, pm)
 		}
 		groups = append(groups, grp)
 	}
+
+	//设备新增的点位(旧模型里没有)归入"设备上报"组, 保持设备上报顺序
 	extra := -1
 	for i, g := range groups {
 		if g.name == extraGroup {
@@ -121,20 +139,16 @@ func mergeModelGroups(old, reported []map[string]any) []map[string]any {
 			break
 		}
 	}
-
 	for _, p := range reported {
 		name, _ := p["name"].(string)
-		if name == "" {
-			continue
-		}
-		if ref, ok := index[name]; ok {
-			groups[ref.gi].points[ref.pi] = p //同名：原分组内更新属性
+		if name == "" || placed[name] {
 			continue
 		}
 		if extra < 0 {
 			extra = len(groups)
 			groups = append(groups, modelGroup{name: extraGroup})
 		}
+		placed[name] = true
 		groups[extra].points = append(groups[extra].points, p)
 	}
 
