@@ -56,8 +56,13 @@ func queryAllChunked(table, id string, st, en time.Time, window, method string) 
 	if err != nil {
 		return nil, err
 	}
-	//范围内有数据就直接返回; 空结果且范围超过4小时时才走分片兜底(短范围空=确实无数据)
+	//范围内有数据直接返回; 空结果且范围超过4小时时, 先做一次轻量计数确认是否真的没有数据:
+	//确实无数据(设备未上报/已停发)直接返回空, 绝不能误判成聚合缺陷去跑分片查询——
+	//分片兜底一次会展开成数百个influxdb查询, 误触发会把influxdb查询队列打爆
 	if len(fields) > 0 || en.Sub(st) <= 4*time.Hour {
+		return fields, nil
+	}
+	if n, cErr := countPoints(table, id, s, e); cErr == nil && n == 0 {
 		return fields, nil
 	}
 
