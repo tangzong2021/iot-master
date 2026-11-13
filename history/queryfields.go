@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/god-jason/iot-master/pkg/config"
@@ -43,25 +44,49 @@ func QueryFields(table, id, name, start, end, window, method string) ([]*Point, 
 	return pts, nil
 }
 
-// queryAllChunked 按2小时分片查询全因子并合并(边界与UTC偶数小时对齐, 不产生跨片截断窗口)
+// queryAllChunked 按2小时分片查询全因子并合并(边界与UTC偶数小时对齐, 不产生跨片截断窗口)。
+// 分片并行执行(并发上限chunkWorkers): 16天范围=192个分片, 串行约2秒, 并行后降到数百毫秒
 func queryAllChunked(table, id string, st, en time.Time, window, method string) (map[string][]*Point, error) {
-	fields := make(map[string][]*Point)
 	const chunk = 2 * time.Hour
+	const chunkWorkers = 8
+
+	//先切分出全部分片区间
+	type span struct{ s, e string }
+	var spans []span
 	for cur := st; cur.Before(en); {
 		next := cur.Add(chunk)
 		if next.After(en) {
 			next = en
 		}
-		s := cur.UTC().Format(time.RFC3339Nano)
-		e := next.UTC().Format(time.RFC3339Nano)
-		part, err := queryChunk(table, id, s, e, window, method)
-		if err != nil {
-			return nil, err
+		spans = append(spans, span{cur.UTC().Format(time.RFC3339Nano), next.UTC().Format(time.RFC3339Nano)})
+		cur = next
+	}
+
+	parts := make([]map[string][]*Point, len(spans))
+	errs := make([]error, len(spans))
+
+	//并发跑分片(带并发上限), 结果按下标回填保证合并顺序稳定
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, chunkWorkers)
+	for i := range spans {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			parts[idx], errs[idx] = queryChunk(table, id, spans[idx].s, spans[idx].e, window, method)
+		}(i)
+	}
+	wg.Wait()
+
+	fields := make(map[string][]*Point)
+	for i := range spans {
+		if errs[i] != nil {
+			return nil, errs[i]
 		}
-		for fname, pts := range part {
+		for fname, pts := range parts[i] {
 			fields[fname] = append(fields[fname], pts...)
 		}
-		cur = next
 	}
 	return fields, nil
 }
