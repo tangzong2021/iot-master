@@ -44,13 +44,26 @@ func QueryFields(table, id, name, start, end, window, method string) ([]*Point, 
 	return pts, nil
 }
 
-// queryAllChunked 按2小时分片查询全因子并合并(边界与UTC偶数小时对齐, 不产生跨片截断窗口)。
-// 分片并行执行(并发上限chunkWorkers): 16天范围=192个分片, 串行约2秒, 并行后降到数百毫秒
+// queryAllChunked 查询时间段内全因子点位。
+// 快路径: 单次查询(TSI索引修复后长范围聚合已验证稳定, 30天约300~600ms, 一次往返);
+// 兜底: 若长范围(>4h)单次查询返回空, 判定为influxdb长范围聚合缺陷复发, 退回2小时分片查询。
+// 分片查询为并行执行(并发上限chunkWorkers), 结果按下标回填保证合并顺序稳定。
 func queryAllChunked(table, id string, st, en time.Time, window, method string) (map[string][]*Point, error) {
-	const chunk = 2 * time.Hour
-	const chunkWorkers = 8
+	s := st.UTC().Format(time.RFC3339Nano)
+	e := en.UTC().Format(time.RFC3339Nano)
 
-	//先切分出全部分片区间
+	fields, err := queryChunk(table, id, s, e, window, method)
+	if err != nil {
+		return nil, err
+	}
+	//范围内有数据就直接返回; 空结果且范围超过4小时时才走分片兜底(短范围空=确实无数据)
+	if len(fields) > 0 || en.Sub(st) <= 4*time.Hour {
+		return fields, nil
+	}
+
+	const chunk = 2 * time.Hour
+	const chunkWorkers = 4
+
 	type span struct{ s, e string }
 	var spans []span
 	for cur := st; cur.Before(en); {
@@ -65,7 +78,6 @@ func queryAllChunked(table, id string, st, en time.Time, window, method string) 
 	parts := make([]map[string][]*Point, len(spans))
 	errs := make([]error, len(spans))
 
-	//并发跑分片(带并发上限), 结果按下标回填保证合并顺序稳定
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, chunkWorkers)
 	for i := range spans {
@@ -79,16 +91,16 @@ func queryAllChunked(table, id string, st, en time.Time, window, method string) 
 	}
 	wg.Wait()
 
-	fields := make(map[string][]*Point)
+	merged := make(map[string][]*Point)
 	for i := range spans {
 		if errs[i] != nil {
 			return nil, errs[i]
 		}
 		for fname, pts := range parts[i] {
-			fields[fname] = append(fields[fname], pts...)
+			merged[fname] = append(merged[fname], pts...)
 		}
 	}
-	return fields, nil
+	return merged, nil
 }
 
 // queryChunk 查询单个时间分片(不带_field过滤, 返回全部因子点位并按因子名分组)
